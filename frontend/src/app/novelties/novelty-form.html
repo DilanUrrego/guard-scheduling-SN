@@ -1,0 +1,100 @@
+<div class="modal">
+  <div class="modal__header">
+    <div class="modal__title-group">
+      <mat-icon class="modal__icon">{{ isEdit ? 'edit' : 'add_circle' }}</mat-icon>
+      <h2 class="modal__title">{{ isEdit ? 'Editar novedad' : 'Registrar novedad' }}</h2>
+    </div>
+    <button mat-icon-button (click)="cancel()"><mat-icon>close</mat-icon></button>
+  </div>
+  <mat-divider />
+
+  <form [formGroup]="form" (ngSubmit)="save()" class="modal__form">
+
+    <!-- Vigilante -->
+    <mat-form-field appearance="outline">
+      <mat-label>Vigilante</mat-label>
+      <mat-select formControlName="guard_id">
+        <mat-option *ngFor="let g of data.guards" [value]="g.id">
+          {{ g.full_name }} · {{ g.id_number }}
+        </mat-option>
+      </mat-select>
+      <mat-error>Selecciona un vigilante</mat-error>
+    </mat-form-field>
+
+    <!-- Tipo de novedad -->
+    <mat-form-field appearance="outline">
+      <mat-label>Tipo de novedad</mat-label>
+      <mat-select formControlName="novelty_type_id"
+                  (selectionChange)="onTypeChange($event.value)">
+        <mat-option *ngFor="let t of data.noveltyTypes" [value]="t.id">
+          <span class="type-dot" [style.background]="t.color_hex"></span>
+          {{ t.code }} — {{ t.name }}
+        </mat-option>
+      </mat-select>
+      <mat-error>Selecciona el tipo de novedad</mat-error>
+    </mat-form-field>
+
+    <!-- Alerta si es retiro -->
+    <div class="modal__alert modal__alert--warn" *ngIf="isTermination">
+      <mat-icon>warning_amber</mat-icon>
+      Este tipo de novedad marcará al vigilante como <strong>retirado</strong> automáticamente.
+    </div>
+
+    <!-- Puesto -->
+    <mat-form-field appearance="outline">
+      <mat-label>Puesto donde ocurre</mat-label>
+      <mat-select formControlName="post_id">
+        <mat-option *ngFor="let p of posts()" [value]="p.id">{{ p.name }}</mat-option>
+      </mat-select>
+      <mat-error>Selecciona el puesto</mat-error>
+    </mat-form-field>
+
+    <!-- Fechas -->
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Fecha inicio</mat-label>
+        <input matInput type="date" formControlName="date_start" />
+        <mat-error>La fecha de inicio es requerida</mat-error>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Fecha fin (opcional)</mat-label>
+        <input matInput type="date" formControlName="date_end" />
+        <mat-hint>Dejar vacío si es un solo día</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Soporte documental -->
+    <div class="support-section" *ngIf="requiresSupport">
+      <mat-checkbox formControlName="support_submitted" color="primary">
+        El vigilante ya presentó el soporte documental
+      </mat-checkbox>
+      <p class="support-hint" *ngIf="!form.get('support_submitted')?.value">
+        <mat-icon>info_outline</mat-icon>
+        Este tipo de novedad requiere soporte. Aparecerá como pendiente en los informes hasta que se marque como presentado.
+      </p>
+    </div>
+
+    <!-- Observaciones -->
+    <mat-form-field appearance="outline">
+      <mat-label>Observaciones</mat-label>
+      <textarea matInput formControlName="observations" rows="3"
+                placeholder="Información adicional sobre la novedad..."></textarea>
+    </mat-form-field>
+
+    <!-- Error servidor -->
+    <div class="modal__error" *ngIf="error()">
+      <mat-icon>warning_amber</mat-icon> {{ error() }}
+    </div>
+
+  </form>
+
+  <mat-divider />
+  <div class="modal__actions">
+    <button class="btn btn--secondary" (click)="cancel()">Cancelar</button>
+    <button class="btn btn--primary" (click)="save()" [disabled]="saving()">
+      <mat-spinner *ngIf="saving()" diameter="18" />
+      <mat-icon *ngIf="!saving()">save</mat-icon>
+      {{ isEdit ? 'Guardar cambios' : 'Registrar novedad' }}
+    </button>
+  </div>
+</div>

@@ -1,0 +1,187 @@
+<div class="dashboard" *ngIf="!loading(); else loadingTpl">
+
+  <!-- Saludo -->
+  <div class="dashboard__welcome">
+    <div>
+      <h1 class="page-title">{{ greeting }}, {{ firstName }}</h1>
+      <p class="page-subtitle">Resumen del sistema · {{ monthLabel | titlecase }}</p>
+    </div>
+    <a routerLink="/scheduling" class="btn btn--primary" *ngIf="auth.canEdit()">
+      <mat-icon>calendar_month</mat-icon>
+      Ver programación
+    </a>
+  </div>
+
+  <!-- Métricas principales -->
+  <div class="metrics-grid">
+
+    <div class="metric-card">
+      <div class="metric-card__icon metric-card__icon--yellow">
+        <mat-icon>security</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ totalGuards() }}</span>
+        <span class="metric-card__label">Vigilantes activos</span>
+      </div>
+      <a routerLink="/guards" class="metric-card__link">Ver todos</a>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-card__icon metric-card__icon--blue">
+        <mat-icon>business</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ totalClients() }}</span>
+        <span class="metric-card__label">Clientes activos</span>
+      </div>
+      <a routerLink="/clients" class="metric-card__link" *ngIf="auth.isAdmin()">Ver todos</a>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-card__icon metric-card__icon--green">
+        <mat-icon>location_on</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ totalPosts() }}</span>
+        <span class="metric-card__label">Puestos activos</span>
+      </div>
+      <a routerLink="/posts" class="metric-card__link">Ver todos</a>
+    </div>
+
+    <div class="metric-card" [class.metric-card--alert]="pendingNovelties() > 0">
+      <div class="metric-card__icon metric-card__icon--red">
+        <mat-icon>report_problem</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ pendingNovelties() }}</span>
+        <span class="metric-card__label">Soportes pendientes</span>
+      </div>
+      <a routerLink="/novelties" [queryParams]="{support_pending: true}"
+         class="metric-card__link" *ngIf="pendingNovelties() > 0">
+        Revisar
+      </a>
+    </div>
+
+    <div class="metric-card" [class.metric-card--alert]="pendingGuards() > 0">
+      <div class="metric-card__icon metric-card__icon--orange">
+        <mat-icon>person_off</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ pendingGuards() }}</span>
+        <span class="metric-card__label">Sin turno este mes</span>
+      </div>
+      <a routerLink="/reports" class="metric-card__link" *ngIf="pendingGuards() > 0">Ver informe</a>
+    </div>
+
+    <div class="metric-card" [class.metric-card--alert]="shiftCrosses() > 0">
+      <div class="metric-card__icon metric-card__icon--purple">
+        <mat-icon>swap_horiz</mat-icon>
+      </div>
+      <div class="metric-card__data">
+        <span class="metric-card__value">{{ shiftCrosses() }}</span>
+        <span class="metric-card__label">Cruces de turno</span>
+      </div>
+      <a routerLink="/reports" class="metric-card__link" *ngIf="shiftCrosses() > 0">Ver informe</a>
+    </div>
+
+  </div>
+
+  <!-- Paneles inferiores -->
+  <div class="dashboard__panels">
+
+    <!-- Novedades recientes del mes -->
+    <div class="card panel">
+      <div class="panel__header">
+        <h3 class="panel__title">
+          <mat-icon>event_note</mat-icon>
+          Novedades del mes
+        </h3>
+        <a routerLink="/novelties" class="btn btn--secondary" style="padding:6px 12px">
+          Ver todas
+        </a>
+      </div>
+
+      <div *ngIf="recentNovelties().length === 0" class="empty-state" style="padding:32px">
+        <mat-icon>event_available</mat-icon>
+        <h3>Sin novedades este mes</h3>
+        <p>No se han registrado novedades en {{ monthLabel }}</p>
+      </div>
+
+      <table class="data-table" *ngIf="recentNovelties().length > 0">
+        <thead>
+          <tr><th>Vigilante</th><th>Novedad</th><th>Fecha</th><th>Soporte</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let n of recentNovelties()">
+            <td><strong>{{ n.guard.full_name.split(' ').slice(0,2).join(' ') }}</strong></td>
+            <td>
+              <span class="novelty-dot" [style.background]="n.novelty_type.color_hex"></span>
+              {{ n.novelty_type.code }}
+            </td>
+            <td>{{ n.date_start | date:'dd/MM' }}</td>
+            <td>
+              <span class="badge badge--danger"
+                    *ngIf="n.novelty_type.support_required && !n.support_submitted">
+                Pendiente
+              </span>
+              <span class="badge badge--success"
+                    *ngIf="n.novelty_type.support_required && n.support_submitted">
+                OK
+              </span>
+              <span class="badge badge--gray" *ngIf="!n.novelty_type.support_required">N/A</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Vigilantes sin turno -->
+    <div class="card panel">
+      <div class="panel__header">
+        <h3 class="panel__title">
+          <mat-icon>person_search</mat-icon>
+          Sin turno asignado
+        </h3>
+        <a routerLink="/reports" class="btn btn--secondary" style="padding:6px 12px">
+          Ver informe
+        </a>
+      </div>
+
+      <div *ngIf="pendingGuardsList().length === 0" class="empty-state" style="padding:32px">
+        <mat-icon style="color:#10b981">check_circle</mat-icon>
+        <h3>Todo el personal programado</h3>
+        <p>Todos los vigilantes tienen turno asignado este mes</p>
+      </div>
+
+      <table class="data-table" *ngIf="pendingGuardsList().length > 0">
+        <thead>
+          <tr><th>Cédula</th><th>Nombre</th><th>Cargo</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of pendingGuardsList()">
+            <td>{{ g.id_number }}</td>
+            <td><strong>{{ g.full_name }}</strong></td>
+            <td>
+              <span class="badge badge--primary" *ngIf="g.is_supervisor">Supervisor</span>
+              <span class="badge badge--gray"    *ngIf="!g.is_supervisor">Vigilante</span>
+            </td>
+          </tr>
+          <tr *ngIf="pendingGuards() > 5">
+            <td colspan="3" style="text-align:center;color:#6b7280;font-size:12px;padding:10px">
+              y {{ pendingGuards() - 5 }} más...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+<ng-template #loadingTpl>
+  <div class="dashboard-loading">
+    <mat-spinner diameter="48" />
+    <p>Cargando información del sistema...</p>
+  </div>
+</ng-template>

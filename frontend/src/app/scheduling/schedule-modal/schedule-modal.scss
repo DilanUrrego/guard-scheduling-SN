@@ -1,0 +1,113 @@
+@use '../../../styles/variables' as *;
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+  }
+
+  &__title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__icon {
+    color: $color-primary;
+    font-size: 24px;
+  }
+
+  &__title {
+    font-size: $font-size-md;
+    font-weight: 700;
+    color: $color-dark;
+  }
+
+  // Vista solo lectura
+  &__readonly {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__readonly-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__readonly-label {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: $color-gray;
+  }
+
+  &__readonly-value {
+    font-size: $font-size-sm;
+    color: $color-dark;
+    font-weight: 500;
+  }
+
+  // Formulario
+  &__form {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    mat-form-field { width: 100%; }
+  }
+
+  &__guard-id {
+    font-size: $font-size-xs;
+    color: $color-gray;
+  }
+
+  &__shift-code {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    color: white;
+    margin-right: 6px;
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: $color-danger-light;
+    color: $color-danger;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    font-weight: 500;
+
+    mat-icon { font-size: 18px; width: 18px; flex-shrink: 0; }
+  }
+
+  // Acciones
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px 20px;
+    gap: 12px;
+  }
+
+  &__actions-right {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+  }
+}

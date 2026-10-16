@@ -1,0 +1,144 @@
+<div class="modal">
+
+  <!-- ENCABEZADO -->
+  <div class="modal__header">
+    <div class="modal__title-group">
+      <mat-icon class="modal__icon">{{ isEditMode() ? 'edit_calendar' : 'add_circle' }}</mat-icon>
+      <h2 class="modal__title">
+        {{ isEditMode() ? 'Editar asignación' : 'Nueva asignación' }}
+      </h2>
+    </div>
+    <button mat-icon-button (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-divider />
+
+  <!-- VISTA SOLO LECTURA (viewer) -->
+  <div class="modal__readonly" *ngIf="isEditMode() && !data.canEdit">
+    <div class="modal__readonly-row">
+      <span class="modal__readonly-label">Vigilante</span>
+      <span class="modal__readonly-value">{{ schedule.guard.full_name }}</span>
+    </div>
+    <div class="modal__readonly-row">
+      <span class="modal__readonly-label">Puesto</span>
+      <span class="modal__readonly-value">{{ schedule.shift_config.post.name }}</span>
+    </div>
+    <div class="modal__readonly-row">
+      <span class="modal__readonly-label">Turno</span>
+      <span class="modal__readonly-value">
+        {{ schedule.shift_config.code }} — {{ schedule.shift_config.name }}
+        ({{ schedule.shift_config.start_time }} – {{ schedule.shift_config.end_time }})
+      </span>
+    </div>
+    <div class="modal__readonly-row">
+      <span class="modal__readonly-label">Fecha</span>
+      <span class="modal__readonly-value">
+        {{ schedule.date | date:'fullDate':'':'es-CO' }}
+      </span>
+    </div>
+    <div class="modal__readonly-row" *ngIf="schedule.novelty">
+      <span class="modal__readonly-label">Novedad</span>
+      <span class="badge badge--danger">
+        {{ schedule.novelty.novelty_type.code }} — {{ schedule.novelty.novelty_type.name }}
+      </span>
+    </div>
+  </div>
+
+  <!-- FORMULARIO (admin / coordinator) -->
+  <form [formGroup]="form" (ngSubmit)="save()" class="modal__form"
+        *ngIf="!isEditMode() || data.canEdit">
+
+    <!-- Vigilante -->
+    <mat-form-field appearance="outline">
+      <mat-label>Vigilante</mat-label>
+      <mat-select formControlName="guard_id"
+                  (selectionChange)="onGuardChange($event.value)">
+        <mat-option *ngFor="let g of guards" [value]="g.id">
+          {{ g.full_name }}
+          <span class="modal__guard-id"> · {{ g.id_number }}</span>
+        </mat-option>
+      </mat-select>
+      <mat-error>Selecciona un vigilante</mat-error>
+    </mat-form-field>
+
+    <!-- Puesto -->
+    <mat-form-field appearance="outline">
+      <mat-label>Puesto</mat-label>
+      <mat-select (selectionChange)="onPostChange($event.value)"
+                  [disabled]="posts.length === 0">
+        <mat-option *ngFor="let p of posts" [value]="p.id">
+          {{ p.name }}
+        </mat-option>
+      </mat-select>
+      <mat-hint *ngIf="posts.length === 0">Selecciona un cliente primero en los filtros</mat-hint>
+    </mat-form-field>
+
+    <!-- Turno -->
+    <mat-form-field appearance="outline">
+      <mat-label>Turno</mat-label>
+      <mat-select formControlName="shift_config_id"
+                  [disabled]="shiftConfigs().length === 0">
+        <mat-option *ngFor="let s of shiftConfigs()" [value]="s.id">
+          <span class="modal__shift-code"
+                [style.background]="s.color_hex">{{ s.code }}</span>
+          {{ s.name }} · {{ s.start_time }}–{{ s.end_time }}
+        </mat-option>
+      </mat-select>
+      <mat-error>Selecciona un turno</mat-error>
+      <mat-hint *ngIf="shiftConfigs().length === 0 && form.get('shift_config_id')?.value === ''">
+        Selecciona un puesto para ver los turnos disponibles
+      </mat-hint>
+    </mat-form-field>
+
+    <!-- Fecha -->
+    <mat-form-field appearance="outline">
+      <mat-label>Fecha</mat-label>
+      <input matInput type="date" formControlName="date" />
+      <mat-error>La fecha es requerida</mat-error>
+    </mat-form-field>
+
+    <!-- Estado (solo en edición) -->
+    <mat-form-field appearance="outline" *ngIf="isEditMode()">
+      <mat-label>Estado</mat-label>
+      <mat-select formControlName="status">
+        <mat-option *ngFor="let s of statusOptions" [value]="s.value">
+          {{ s.label }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Error del servidor -->
+    <div class="modal__error" *ngIf="error()">
+      <mat-icon>warning_amber</mat-icon>
+      {{ error() }}
+    </div>
+
+  </form>
+
+  <mat-divider />
+
+  <!-- ACCIONES -->
+  <div class="modal__actions">
+    <button class="btn btn--danger" *ngIf="isEditMode() && data.canEdit"
+            type="button" (click)="delete()" [disabled]="saving()">
+      <mat-icon>delete</mat-icon>
+      Eliminar
+    </button>
+
+    <div class="modal__actions-right">
+      <button class="btn btn--secondary" type="button" (click)="cancel()">
+        Cancelar
+      </button>
+      <button class="btn btn--primary" type="button"
+              (click)="save()" [disabled]="saving()"
+              *ngIf="data.canEdit">
+        <mat-spinner *ngIf="saving()" diameter="18" />
+        <mat-icon *ngIf="!saving()">save</mat-icon>
+        {{ isEditMode() ? 'Guardar cambios' : 'Asignar turno' }}
+      </button>
+    </div>
+  </div>
+
+</div>

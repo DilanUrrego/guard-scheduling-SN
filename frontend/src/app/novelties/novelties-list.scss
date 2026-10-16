@@ -1,0 +1,70 @@
+@use '../../styles/variables' as *;
+
+.list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+}
+
+.list-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  mat-form-field { min-width: 160px; flex: 1; }
+}
+
+.list-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+// Fila con soporte pendiente — fondo rojo muy suave
+.row--support-pending td {
+  background: rgba($color-danger, .04);
+}
+
+.guard-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guard-id {
+  font-size: $font-size-xs;
+  color: $color-gray;
+}
+
+.novelty-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  color: white;
+  margin-right: 6px;
+}
+

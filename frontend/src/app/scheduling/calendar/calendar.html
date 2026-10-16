@@ -1,0 +1,104 @@
+<div class="cal-page">
+
+  <!-- ENCABEZADO -->
+  <div class="cal-page__header">
+    <div>
+      <h1 class="page-title">Programación de Turnos</h1>
+      <p class="page-subtitle">Gestiona la asignación de vigilantes por puesto y fecha</p>
+    </div>
+
+    <button class="btn btn--primary" (click)="openModal({})" *ngIf="auth.canEdit()">
+      <mat-icon>add</mat-icon>
+      Nueva asignación
+    </button>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="card cal-filters">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Cliente</mat-label>
+      <mat-select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
+        <mat-option value="">Todos los clientes</mat-option>
+        <mat-option *ngFor="let c of clients()" [value]="c.id">{{ c.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Puesto</mat-label>
+      <mat-select [(ngModel)]="selectedPostId" (ngModelChange)="onPostChange()"
+                  [disabled]="!selectedClientId()">
+        <mat-option value="">Todos los puestos</mat-option>
+        <mat-option *ngFor="let p of posts()" [value]="p.id">{{ p.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Vigilante</mat-label>
+      <mat-select [(ngModel)]="selectedGuardId" (ngModelChange)="onGuardChange()">
+        <mat-option value="">Todos los vigilantes</mat-option>
+        <mat-option *ngFor="let g of guards()" [value]="g.id">
+          {{ g.full_name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button class="btn btn--secondary" (click)="loadSchedules()" matTooltip="Actualizar">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- CALENDARIO -->
+  <div class="card cal-card">
+
+    <!-- Toolbar del calendario -->
+    <div class="cal-toolbar">
+      <div class="cal-toolbar__nav">
+        <button class="btn btn--secondary" (click)="prevMonth()">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="cal-toolbar__month">{{ monthLabel }}</span>
+        <button class="btn btn--secondary" (click)="nextMonth()">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <button class="btn btn--secondary" (click)="goToday()">Hoy</button>
+    </div>
+
+    <!-- Spinner de carga -->
+    <div class="cal-loading" *ngIf="loading()">
+      <mat-spinner diameter="40" />
+      <span>Cargando programación...</span>
+    </div>
+
+    <!-- FullCalendar -->
+    <full-calendar [options]="calendarOptions()" />
+
+  </div>
+
+  <!-- LEYENDA de turnos (muestra los primeros 8 shift configs disponibles) -->
+  <div class="card cal-legend">
+    <span class="cal-legend__title">Leyenda de turnos</span>
+    <div class="cal-legend__items">
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#4A90D9"></span> Turno día
+      </span>
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#2C3E50"></span> Turno noche
+      </span>
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#48BB78"></span> Descanso laborado
+      </span>
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#E53E3E"></span> Novedad
+      </span>
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#9F7AEA"></span> Suspensión
+      </span>
+      <span class="cal-legend__item">
+        <span class="cal-legend__dot" style="background:#718096"></span> Retiro
+      </span>
+    </div>
+  </div>
+
+</div>

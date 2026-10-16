@@ -1,0 +1,87 @@
+@use '../../styles/variables' as *;
+
+.modal {
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+  }
+
+  &__title-group { display: flex; align-items: center; gap: 10px; }
+  &__icon { color: $color-primary; }
+  &__title { font-size: $font-size-md; font-weight: 700; }
+
+  &__form {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    mat-form-field { width: 100%; }
+  }
+
+  &__alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    mat-icon { font-size: 18px; flex-shrink: 0; }
+
+    &--warn {
+      background: $color-warning-light;
+      color: darken(#f59e0b, 20%);
+    }
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: $color-danger-light;
+    color: $color-danger;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    mat-icon { font-size: 18px; }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px 20px;
+  }
+}
+
+.type-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.support-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: $color-gray-subtle;
+  border-radius: $border-radius;
+  border: 1px solid $color-gray-light;
+}
+
+.support-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $font-size-xs;
+  color: $color-gray;
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+}

@@ -1,0 +1,81 @@
+@use '../../../styles/variables' as *;
+
+.list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+}
+
+// Descripción de roles
+.roles-info {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: $color-gray-subtle;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: $font-size-sm;
+  color: $color-gray;
+
+  .badge { flex-shrink: 0; }
+}
+
+// Fila del usuario actual
+.row--current td { background: $color-primary-subtle; }
+
+// Avatar circular con iniciales
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: $color-primary;
+  color: $color-dark;
+  font-size: $font-size-xs;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.current-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  background: $color-primary;
+  color: $color-dark;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.list-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}

@@ -1,0 +1,84 @@
+<div class="list-page">
+
+  <div class="list-page__header">
+    <div>
+      <h1 class="page-title">Usuarios del Sistema</h1>
+      <p class="page-subtitle">Gestión de acceso y roles al sistema de programación</p>
+    </div>
+    <button class="btn btn--primary" (click)="openForm()">
+      <mat-icon>person_add</mat-icon> Nuevo usuario
+    </button>
+  </div>
+
+  <!-- Info de roles -->
+  <div class="card roles-info">
+    <div class="role-item">
+      <span class="badge badge--danger">Administrador</span>
+      <span>Acceso total al sistema. Puede crear y eliminar usuarios, clientes y vigilantes.</span>
+    </div>
+    <div class="role-item">
+      <span class="badge badge--primary">Coordinador</span>
+      <span>Puede editar programación, registrar novedades y consultar informes.</span>
+    </div>
+    <div class="role-item">
+      <span class="badge badge--gray">Visualizador</span>
+      <span>Solo lectura. Pensado para vigilantes que consultan su turno.</span>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card">
+    <div class="list-loading" *ngIf="loading()"><mat-spinner diameter="36" /></div>
+
+    <table class="data-table" *ngIf="!loading()">
+      <thead>
+        <tr>
+          <th>Cédula</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let u of users()" [class.row--current]="isCurrentUser(u)">
+          <td>{{ u.id_number }}</td>
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar">{{ getInitials(u.name) }}</div>
+              <div>
+                <strong>{{ u.name }}</strong>
+                <span class="current-tag" *ngIf="isCurrentUser(u)">Tú</span>
+              </div>
+            </div>
+          </td>
+          <td>{{ u.email }}</td>
+          <td>
+            <span class="badge" [class]="roleBadgeClass(u.role)">
+              {{ roleLabels[u.role] }}
+            </span>
+          </td>
+          <td>
+            <span class="badge" [class.badge--success]="u.is_active" [class.badge--gray]="!u.is_active">
+              {{ u.is_active ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+          <td class="table-actions">
+            <button mat-icon-button matTooltip="Editar" (click)="openForm(u)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Desactivar" color="warn"
+                    *ngIf="u.is_active && !isCurrentUser(u)" (click)="deactivate(u)">
+              <mat-icon>person_off</mat-icon>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="users().length === 0">
+          <td colspan="6">
+            <div class="empty-state">
+              <mat-icon>manage_accounts</mat-icon>
+              <h3>No hay usuarios registrados</h3>
+              <p>Agrega el primer usuario con el botón "Nuevo usuario"</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

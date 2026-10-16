@@ -1,0 +1,89 @@
+<div class="list-page">
+
+  <div class="list-page__header">
+    <div>
+      <h1 class="page-title">Vigilantes</h1>
+      <p class="page-subtitle">Gestión del personal de seguridad</p>
+    </div>
+    <button class="btn btn--primary" (click)="openForm()" *ngIf="auth.canEdit()">
+      <mat-icon>person_add</mat-icon> Nuevo vigilante
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card list-filters">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Buscar por nombre o cédula</mat-label>
+      <input matInput [(ngModel)]="search" (ngModelChange)="load()" placeholder="Ej: García o 1035..." />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Estado</mat-label>
+      <mat-select [(ngModel)]="filterActive" (ngModelChange)="load()">
+        <mat-option value="true">Activos</mat-option>
+        <mat-option value="false">Retirados</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card">
+    <div class="list-loading" *ngIf="loading()">
+      <mat-spinner diameter="36" />
+    </div>
+
+    <table class="data-table" *ngIf="!loading()">
+      <thead>
+        <tr>
+          <th>Cédula</th>
+          <th>Nombre completo</th>
+          <th>Teléfono</th>
+          <th>Cargo</th>
+          <th>Ingreso</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let g of guards()">
+          <td>{{ g.id_number }}</td>
+          <td>
+            <strong>{{ g.full_name }}</strong>
+            <span class="badge badge--primary" *ngIf="g.is_supervisor" style="margin-left:8px">Supervisor</span>
+          </td>
+          <td>{{ g.phone ?? '—' }}</td>
+          <td>{{ g.is_supervisor ? 'Supervisor' : 'Vigilante' }}</td>
+          <td>{{ g.hire_date ? (g.hire_date | date:'dd/MM/yyyy') : '—' }}</td>
+          <td>
+            <span class="badge" [class.badge--success]="g.is_active" [class.badge--gray]="!g.is_active">
+              {{ g.is_active ? 'Activo' : 'Retirado' }}
+            </span>
+          </td>
+          <td class="table-actions">
+            <button mat-icon-button matTooltip="Editar" (click)="openForm(g)" *ngIf="auth.canEdit()">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Retirar" color="warn"
+                    *ngIf="g.is_active && auth.isAdmin()" (click)="terminate(g)">
+              <mat-icon>person_off</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Reactivar"
+                    *ngIf="!g.is_active && auth.isAdmin()" (click)="reactivate(g)">
+              <mat-icon>person</mat-icon>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="guards().length === 0">
+          <td colspan="7">
+            <div class="empty-state">
+              <mat-icon>security</mat-icon>
+              <h3>No hay vigilantes registrados</h3>
+              <p>Agrega el primer vigilante con el botón "Nuevo vigilante"</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

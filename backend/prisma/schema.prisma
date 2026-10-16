@@ -1,0 +1,262 @@
+// ============================================================
+// schema.prisma — Clave Seguridad CTA Scheduling System
+// DB: PostgreSQL | ORM: Prisma
+// Convención: snake_case en DB, camelCase en Prisma client
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  coordinator
+  viewer
+}
+
+enum NoveltyCategory {
+  absence       // Ausencias: IEG, INL, CCS, CSS
+  permit        // Permisos: PNR, PRE
+  suspension    // SUS
+  vacation      // VAC
+  license       // Licencias: LIC, LUT
+  accident      // IAT
+  termination   // Retiros: RET, RET1, RET2, RET3
+}
+
+enum ScheduleStatus {
+  scheduled     // Programado (futuro o sin novedad)
+  executed      // Ejecutado normalmente
+  novedad       // Celda tiene una novedad activa
+  rest          // Descanso programado ( / en Excel)
+}
+
+// ─────────────────────────────────────────────
+// USUARIOS DEL SISTEMA (coordinadores, admin)
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  id_number     String    @unique               // Cédula
+  name          String
+  email         String    @unique
+  password_hash String
+  role          UserRole  @default(coordinator)
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Auditoría
+  schedules_created   Schedule[]  @relation("CreatedBy")
+  schedules_modified  Schedule[]  @relation("ModifiedBy")
+  novelties_created   Novelty[]   @relation("NoveltyCreatedBy")
+  rests_approved      Rest[]      @relation("RestApprovedBy")
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// CLIENTES
+// ─────────────────────────────────────────────
+
+model Client {
+  id         String    @id @default(uuid())
+  code       String    @unique               // Código interno
+  name       String
+  nit        String    @unique
+  phone      String?
+  address    String?
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  posts      Post[]
+
+  @@map("clients")
+}
+
+// ─────────────────────────────────────────────
+// PUESTOS DE VIGILANCIA
+// ─────────────────────────────────────────────
+
+model Post {
+  id         String    @id @default(uuid())
+  client_id  String
+  code       String    @unique               // Ej: 0235001
+  name       String                          // Ej: URBANIZACION CASA DE PATIO P.H
+  address    String?
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  client        Client        @relation(fields: [client_id], references: [id])
+  shift_configs ShiftConfig[]
+  novelties     Novelty[]
+
+  @@map("posts")
+}
+
+// ─────────────────────────────────────────────
+// CONFIGURACIÓN DE TURNOS (por puesto, editables)
+// Ej: 214 = Descanso Laborado 05:00–17:00
+//     314 = Descanso Laborado 17:00–05:00
+// ─────────────────────────────────────────────
+
+model ShiftConfig {
+  id                   String   @id @default(uuid())
+  post_id              String
+  code                 String   @unique           // Ej: "214", "4", "63"
+  name                 String                     // Ej: "Descanso Laborado 05 a 17"
+  start_time           String                     // "05:00" — guardado como HH:mm
+  end_time             String                     // "17:00"
+  crosses_midnight     Boolean  @default(false)   // true si end_time < start_time
+  // Días activos: string de 7 chars "1111111" (L-M-W-J-V-S-D)
+  // "1111110" = Lunes a Sábado
+  active_days          String   @default("1111111")
+  is_worked_rest       Boolean  @default(false)   // true = descanso laborado (214, 314)
+  color_hex            String   @default("#4A90D9")
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  post      Post       @relation(fields: [post_id], references: [id])
+  schedules Schedule[]
+
+  @@map("shift_configs")
+}
+
+// ─────────────────────────────────────────────
+// VIGILANTES
+// ─────────────────────────────────────────────
+
+model Guard {
+  id            String    @id @default(uuid())
+  id_number     String    @unique             // Cédula
+  full_name     String
+  phone         String?
+  email         String?
+  hire_date     DateTime?
+  termination_date DateTime?
+  is_supervisor Boolean   @default(false)     // Sin impacto en scheduling
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  schedules  Schedule[]
+  novelties  Novelty[]
+  rests      Rest[]
+
+  @@map("guards")
+}
+
+// ─────────────────────────────────────────────
+// CATÁLOGO DE TIPOS DE NOVEDAD (seed fijo + editable por admin)
+// ─────────────────────────────────────────────
+
+model NoveltyType {
+  id               String          @id @default(uuid())
+  code             String          @unique     // "IEG", "PNR", "RET1"…
+  name             String                      // "Incapacidad General"
+  category         NoveltyCategory
+  affects_payroll  Boolean         @default(false)
+  is_termination   Boolean         @default(false)
+  // ¿Este tipo de novedad exige soporte documental?
+  support_required Boolean         @default(false)
+  color_hex        String          @default("#E53E3E")
+  is_active        Boolean         @default(true)
+  created_at       DateTime        @default(now())
+
+  novelties Novelty[]
+
+  @@map("novelty_types")
+}
+
+// ─────────────────────────────────────────────
+// NOVEDADES
+// Una novedad puede estar vinculada a una celda del calendario (programacion_id)
+// o ser independiente (ej: retiro, ingreso sin turno asignado aún)
+// ─────────────────────────────────────────────
+
+model Novelty {
+  id                String      @id @default(uuid())
+  guard_id          String
+  novelty_type_id   String
+  post_id           String
+  schedule_id       String?     @unique       // nullable: novedad sin turno asociado
+  date_start        DateTime
+  date_end          DateTime?                 // null si es de un solo día
+  // ¿El vigilante/supervisor presentó el soporte documental?
+  support_submitted Boolean     @default(false)
+  observations      String?
+  registered_by_id  String
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  guard        Guard        @relation(fields: [guard_id], references: [id])
+  novelty_type NoveltyType  @relation(fields: [novelty_type_id], references: [id])
+  post         Post         @relation(fields: [post_id], references: [id])
+  schedule     Schedule?    @relation(fields: [schedule_id], references: [id])
+  registered_by User        @relation("NoveltyCreatedBy", fields: [registered_by_id], references: [id])
+
+  @@map("novelties")
+}
+
+// ─────────────────────────────────────────────
+// PROGRAMACIÓN — celda del calendario
+// 1 registro = 1 celda (vigilante × fecha × turno)
+// ─────────────────────────────────────────────
+
+model Schedule {
+  id               String         @id @default(uuid())
+  guard_id         String
+  shift_config_id  String
+  date             DateTime       @db.Date
+  status           ScheduleStatus @default(scheduled)
+  created_by_id    String
+  modified_by_id   String?
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+
+  guard         Guard        @relation(fields: [guard_id], references: [id])
+  shift_config  ShiftConfig  @relation(fields: [shift_config_id], references: [id])
+  created_by    User         @relation("CreatedBy", fields: [created_by_id], references: [id])
+  modified_by   User?        @relation("ModifiedBy", fields: [modified_by_id], references: [id])
+  novelty       Novelty?
+
+  // Un vigilante no puede tener dos turnos en la misma fecha
+  // (validación adicional en capa de servicio para turnos que cruzan medianoche)
+  @@unique([guard_id, date, shift_config_id])
+  @@index([date])
+  @@index([guard_id, date])
+  @@map("schedules")
+}
+
+// ─────────────────────────────────────────────
+// DESCANSOS PROGRAMADOS
+// Separados de novedades: son planificación futura
+// ─────────────────────────────────────────────
+
+model Rest {
+  id              String    @id @default(uuid())
+  guard_id        String
+  date_start      DateTime  @db.Date
+  date_end        DateTime  @db.Date
+  is_sunday       Boolean   @default(false)  // Descanso dominical (recargo legal Colombia)
+  notes           String?
+  approved_by_id  String?
+  created_at      DateTime  @default(now())
+
+  guard       Guard  @relation(fields: [guard_id], references: [id])
+  approved_by User?  @relation("RestApprovedBy", fields: [approved_by_id], references: [id])
+
+  @@index([guard_id, date_start, date_end])
+  @@map("rests")
+}

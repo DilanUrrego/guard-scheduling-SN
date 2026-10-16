@@ -1,0 +1,292 @@
+<div class="reports-page">
+
+  <div class="reports-page__header">
+    <div>
+      <h1 class="page-title">Informes</h1>
+      <p class="page-subtitle">Generación y descarga de informes del sistema</p>
+    </div>
+  </div>
+
+  <!-- Selector de mes/año compartido -->
+  <div class="card period-selector">
+    <span class="period-label">
+      <mat-icon>calendar_today</mat-icon>
+      Período para informes mensuales
+    </span>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Mes</mat-label>
+      <mat-select [(ngModel)]="month">
+        <mat-option *ngFor="let m of months" [value]="m.v">{{ m.l }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Año</mat-label>
+      <mat-select [(ngModel)]="year">
+        <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <mat-tab-group animationDuration="200ms" class="reports-tabs">
+
+    <!-- ── TAB 1: Novedades ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">report</mat-icon>
+        Novedades
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Informe de Novedades</h3>
+              <p>Ausencias, permisos, licencias, retiros y accidentes en un rango de fechas.</p>
+            </div>
+            <mat-icon class="report-card__icon">event_busy</mat-icon>
+          </div>
+
+          <div class="report-card__filters">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Fecha inicio</mat-label>
+              <input matInput type="date" [(ngModel)]="noveltyDateStart" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Fecha fin</mat-label>
+              <input matInput type="date" [(ngModel)]="noveltyDateEnd" />
+            </mat-form-field>
+          </div>
+
+          <div class="report-card__actions">
+            <button class="btn btn--secondary" (click)="loadNovelties()"
+                    [disabled]="!noveltyDateStart || !noveltyDateEnd || anyLoading()">
+              <mat-spinner *ngIf="isLoading('novelties')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('novelties')">preview</mat-icon>
+              Previsualizar
+            </button>
+            <button class="btn btn--primary" (click)="downloadNoveltiesExcel()"
+                    [disabled]="!noveltyDateStart || !noveltyDateEnd || anyLoading()">
+              <mat-spinner *ngIf="isLoading('novelties-excel')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('novelties-excel')">download</mat-icon>
+              Descargar Excel
+            </button>
+          </div>
+
+          <!-- Previsualización -->
+          <div class="preview-table" *ngIf="noveltyResults().length > 0">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Vigilante</th><th>Novedad</th><th>Puesto</th>
+                  <th>Período</th><th>Soporte</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let n of noveltyResults()"
+                    [class.row--pending]="n.support_pending">
+                  <td>{{ n.guard.full_name }}</td>
+                  <td>
+                    <span class="novelty-dot" [style.background]="n.novelty_type.color_hex"></span>
+                    {{ n.novelty_type.code }} — {{ n.novelty_type.name }}
+                  </td>
+                  <td>{{ n.post.name }}</td>
+                  <td>
+                    {{ n.date_start | date:'dd/MM/yy' }}
+                    <span *ngIf="n.date_end"> → {{ n.date_end | date:'dd/MM/yy' }}</span>
+                  </td>
+                  <td>
+                    <span class="badge badge--danger" *ngIf="n.support_pending">Pendiente</span>
+                    <span class="badge badge--success" *ngIf="!n.support_pending && n.novelty_type.support_required">OK</span>
+                    <span class="badge badge--gray" *ngIf="!n.novelty_type.support_required">N/A</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ── TAB 2: Programación mensual ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">calendar_month</mat-icon>
+        Programación Mensual
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Informe Consolidado de Programación</h3>
+              <p>Programación mensual de todos los vigilantes. Incluye novedades y colores por turno.</p>
+            </div>
+            <mat-icon class="report-card__icon">grid_on</mat-icon>
+          </div>
+          <div class="report-card__actions">
+            <button class="btn btn--primary" (click)="downloadMonthlyExcel()" [disabled]="anyLoading()">
+              <mat-spinner *ngIf="isLoading('monthly-excel')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('monthly-excel')">download</mat-icon>
+              Descargar Excel
+            </button>
+          </div>
+          <p class="report-hint">
+            <mat-icon>info_outline</mat-icon>
+            Usa el selector de período en la parte superior para elegir el mes y año.
+          </p>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ── TAB 3: Por cliente ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">business</mat-icon>
+        Por Cliente
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Programación por Cliente</h3>
+              <p>Todos los puestos y turnos de un cliente en el período seleccionado.</p>
+            </div>
+            <mat-icon class="report-card__icon">domain</mat-icon>
+          </div>
+          <div class="report-card__filters">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1">
+              <mat-label>Cliente</mat-label>
+              <mat-select [(ngModel)]="selectedClientId">
+                <mat-option *ngFor="let c of clients()" [value]="c.id">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="report-card__actions">
+            <button class="btn btn--primary" (click)="downloadClientReport()"
+                    [disabled]="!selectedClientId || anyLoading()">
+              <mat-spinner *ngIf="isLoading('client')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('client')">download</mat-icon>
+              Generar informe
+            </button>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ── TAB 4: Personal pendiente ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">person_search</mat-icon>
+        Sin Turno Asignado
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Personal con Turnos Pendientes</h3>
+              <p>Vigilantes activos que no tienen ningún turno asignado en el rango de fechas.</p>
+            </div>
+            <mat-icon class="report-card__icon">person_off</mat-icon>
+          </div>
+          <div class="report-card__filters">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Fecha inicio</mat-label>
+              <input matInput type="date" [(ngModel)]="pendingDateStart" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Fecha fin</mat-label>
+              <input matInput type="date" [(ngModel)]="pendingDateEnd" />
+            </mat-form-field>
+          </div>
+          <div class="report-card__actions">
+            <button class="btn btn--primary" (click)="loadPendingGuards()"
+                    [disabled]="!pendingDateStart || !pendingDateEnd || anyLoading()">
+              <mat-spinner *ngIf="isLoading('pending')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('pending')">search</mat-icon>
+              Consultar
+            </button>
+          </div>
+
+          <div class="preview-table" *ngIf="pendingResults().length > 0">
+            <p class="results-count">
+              {{ pendingResults().length }} vigilante(s) sin turno asignado
+            </p>
+            <table class="data-table">
+              <thead>
+                <tr><th>Cédula</th><th>Nombre</th><th>Teléfono</th><th>Cargo</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let g of pendingResults()">
+                  <td>{{ g.id_number }}</td>
+                  <td><strong>{{ g.full_name }}</strong></td>
+                  <td>{{ g.phone ?? '—' }}</td>
+                  <td>{{ g.is_supervisor ? 'Supervisor' : 'Vigilante' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="pendingResults().length === 0 && !isLoading('pending') && pendingDateStart">
+            <mat-icon>check_circle</mat-icon>
+            <h3>Todo el personal tiene turno asignado</h3>
+            <p>No hay vigilantes sin programar en el período seleccionado.</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ── TAB 5: Cruce de turnos ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">warning</mat-icon>
+        Cruce de Turnos
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Informe de Cruce de Turnos</h3>
+              <p>Detecta vigilantes con dos turnos solapados en el mismo día.</p>
+            </div>
+            <mat-icon class="report-card__icon" style="color:#ef4444">swap_horiz</mat-icon>
+          </div>
+          <div class="report-card__actions">
+            <button class="btn btn--primary" (click)="loadShiftCrosses()" [disabled]="anyLoading()">
+              <mat-spinner *ngIf="isLoading('crosses')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('crosses')">search</mat-icon>
+              Buscar cruces
+            </button>
+          </div>
+
+          <div class="preview-table" *ngIf="crossResults().length > 0">
+            <p class="results-count results-count--warn">
+              <mat-icon>warning_amber</mat-icon>
+              {{ crossResults().length }} cruce(s) detectado(s)
+            </p>
+            <table class="data-table">
+              <thead>
+                <tr><th>Vigilante</th><th>Fecha</th><th>Turno A</th><th>Turno B</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of crossResults()">
+                  <td><strong>{{ c.guard.full_name }}</strong></td>
+                  <td>{{ c.date | date:'dd/MM/yyyy' }}</td>
+                  <td>{{ c.shift_a.code }} ({{ c.shift_a.start_time }}–{{ c.shift_a.end_time }})</td>
+                  <td>{{ c.shift_b.code }} ({{ c.shift_b.start_time }}–{{ c.shift_b.end_time }})</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="crossResults().length === 0 && !isLoading('crosses') && loading() === ''">
+            <mat-icon style="color:#10b981">check_circle</mat-icon>
+            <h3>Sin cruces detectados</h3>
+            <p>Presiona "Buscar cruces" para analizar el período seleccionado.</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+</div>

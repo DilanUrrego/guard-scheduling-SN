@@ -1,0 +1,46 @@
+// Primarios
+$color-primary:        #ffb900;   // Amarillo mostaza Clave
+$color-primary-dark:   #d49a00;
+$color-primary-light:  #ffd14d;
+$color-primary-subtle: #fff8e1;
+
+// Neutros
+$color-dark:           #2c2c2c;   // Gris oscuro del logo
+$color-dark-medium:    #3d3d3d;
+$color-gray:           #6b7280;
+$color-gray-light:     #e5e7eb;
+$color-gray-subtle:    #f9fafb;
+$color-white:          #ffffff;
+
+// Semánticos
+$color-success:        #10b981;
+$color-success-light:  #d1fae5;
+$color-danger:         #ef4444;
+$color-danger-light:   #fee2e2;
+$color-warning:        #f59e0b;
+$color-warning-light:  #fef3c7;
+$color-info:           #3b82f6;
+$color-info-light:     #dbeafe;
+
+// Tipografía
+$font-family:          'Inter', 'Roboto', sans-serif;
+$font-size-xs:         11px;
+$font-size-sm:         13px;
+$font-size-base:       14px;
+$font-size-md:         16px;
+$font-size-lg:         18px;
+$font-size-xl:         22px;
+
+// Layout
+$sidebar-width:        240px;
+$sidebar-collapsed:    64px;
+$header-height:        60px;
+$border-radius:        8px;
+$border-radius-lg:     12px;
+$border-radius-sm:     4px;
+$shadow-sm:            0 1px 3px rgba(0,0,0,.08);
+$shadow-md:            0 4px 12px rgba(0,0,0,.12);
+$shadow-lg:            0 8px 24px rgba(0,0,0,.15);
+
+// Transiciones
+$transition:           all 0.2s ease;

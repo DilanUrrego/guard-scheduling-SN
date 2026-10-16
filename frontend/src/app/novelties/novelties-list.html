@@ -1,0 +1,139 @@
+<div class="list-page">
+
+  <div class="list-page__header">
+    <div>
+      <h1 class="page-title">Novedades</h1>
+      <p class="page-subtitle">Registro de ausencias, permisos, licencias y retiros</p>
+    </div>
+    <div class="list-page__header-actions">
+      <span class="badge badge--danger" *ngIf="supportPendingCount() > 0">
+        <mat-icon style="font-size:14px;width:14px;height:14px">warning</mat-icon>
+        {{ supportPendingCount() }} con soporte pendiente
+      </span>
+      <button class="btn btn--primary" (click)="openForm()" *ngIf="auth.canEdit()">
+        <mat-icon>add_circle</mat-icon> Nueva novedad
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card list-filters">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Vigilante</mat-label>
+      <mat-select [(ngModel)]="filterGuardId" (ngModelChange)="load()">
+        <mat-option value="">Todos</mat-option>
+        <mat-option *ngFor="let g of guards()" [value]="g.id">{{ g.full_name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Categoría</mat-label>
+      <mat-select [(ngModel)]="filterCategory" (ngModelChange)="load()">
+        <mat-option value="">Todas</mat-option>
+        <mat-option *ngFor="let c of categories" [value]="c.value">{{ c.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Soporte</mat-label>
+      <mat-select [(ngModel)]="filterSupportPending" (ngModelChange)="load()">
+        <mat-option value="">Todos</mat-option>
+        <mat-option value="true">Soporte pendiente</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput type="date" [(ngModel)]="filterDateStart" (ngModelChange)="load()" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="date" [(ngModel)]="filterDateEnd" (ngModelChange)="load()" />
+    </mat-form-field>
+
+    <button class="btn btn--secondary" (click)="clearFilters()" matTooltip="Limpiar filtros">
+      <mat-icon>filter_alt_off</mat-icon>
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card">
+    <div class="list-loading" *ngIf="loading()">
+      <mat-spinner diameter="36" />
+    </div>
+
+    <table class="data-table" *ngIf="!loading()">
+      <thead>
+        <tr>
+          <th>Vigilante</th>
+          <th>Novedad</th>
+          <th>Puesto</th>
+          <th>Período</th>
+          <th>Soporte</th>
+          <th>Registrado por</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let n of novelties()"
+            [class.row--support-pending]="n.novelty_type.support_required && !n.support_submitted">
+          <td>
+            <div class="guard-cell">
+              <strong>{{ n.guard.full_name }}</strong>
+              <span class="guard-id">{{ n.guard.id_number }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="novelty-badge" [style.background]="n.novelty_type.color_hex">
+              {{ n.novelty_type.code }}
+            </span>
+            {{ n.novelty_type.name }}
+          </td>
+          <td>{{ n.post.name }}</td>
+          <td>
+            {{ n.date_start | date:'dd/MM/yyyy' }}
+            <span *ngIf="n.date_end"> → {{ n.date_end | date:'dd/MM/yyyy' }}</span>
+          </td>
+          <td>
+            <ng-container *ngIf="n.novelty_type.support_required; else noRequired">
+              <span class="badge badge--success" *ngIf="n.support_submitted">
+                <mat-icon style="font-size:12px;width:12px">check</mat-icon> Presentado
+              </span>
+              <span class="badge badge--danger" *ngIf="!n.support_submitted">
+                <mat-icon style="font-size:12px;width:12px">schedule</mat-icon> Pendiente
+              </span>
+            </ng-container>
+            <ng-template #noRequired>
+              <span class="badge badge--gray">No aplica</span>
+            </ng-template>
+          </td>
+          <td>{{ n.registered_by?.name ?? '—' }}</td>
+          <td class="table-actions">
+            <button mat-icon-button matTooltip="Marcar soporte presentado"
+                    *ngIf="n.novelty_type.support_required && !n.support_submitted && auth.canEdit()"
+                    (click)="markSupportSubmitted(n)">
+              <mat-icon>task_alt</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Editar" (click)="openForm(n)" *ngIf="auth.canEdit()">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Eliminar" color="warn"
+                    *ngIf="auth.isAdmin()" (click)="remove(n)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="novelties().length === 0">
+          <td colspan="7">
+            <div class="empty-state">
+              <mat-icon>event_available</mat-icon>
+              <h3>No hay novedades registradas</h3>
+              <p>Las novedades del personal aparecerán aquí</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

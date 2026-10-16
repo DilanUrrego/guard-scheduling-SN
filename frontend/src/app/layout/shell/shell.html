@@ -1,0 +1,82 @@
+<div class="shell" [class.shell--collapsed]="sidebarCollapsed">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar__header">
+      <img src="/assets/images/logo.png" alt="Clave Seguridad" class="sidebar__logo" />
+      <span class="sidebar__brand">Clave Seguridad</span>
+      <button class="sidebar__toggle" (click)="toggleSidebar()">
+        <mat-icon>{{ sidebarCollapsed ? 'menu' : 'menu_open' }}</mat-icon>
+      </button>
+    </div>
+
+    <nav class="sidebar__nav">
+      <a class="sidebar__link" routerLink="/dashboard" routerLinkActive="sidebar__link--active">
+        <mat-icon>dashboard</mat-icon>
+        <span>Inicio</span>
+      </a>
+      <a class="sidebar__link" routerLink="/scheduling" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.canEdit()">
+        <mat-icon>calendar_month</mat-icon>
+        <span>Programación</span>
+      </a>
+
+      <div class="sidebar__section">Administración</div>
+
+      <a class="sidebar__link" routerLink="/guards" routerLinkActive="sidebar__link--active">
+        <mat-icon>security</mat-icon>
+        <span>Vigilantes</span>
+      </a>
+      <a class="sidebar__link" routerLink="/novelties" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.canEdit()">
+        <mat-icon>report</mat-icon>
+        <span>Novedades</span>
+      </a>
+      <a class="sidebar__link" routerLink="/clients" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.isAdmin()">
+        <mat-icon>business</mat-icon>
+        <span>Clientes</span>
+      </a>
+      <a class="sidebar__link" routerLink="/posts" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.canEdit()">
+        <mat-icon>location_on</mat-icon>
+        <span>Puestos</span>
+      </a>
+      <a class="sidebar__link" routerLink="/shift-configs" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.isAdmin()">
+        <mat-icon>schedule</mat-icon>
+        <span>Tipos de turno</span>
+      </a>
+      <a class="sidebar__link" routerLink="/users" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.isAdmin()">
+        <mat-icon>manage_accounts</mat-icon>
+        <span>Usuarios</span>
+      </a>
+
+      <div class="sidebar__section">Informes</div>
+      <a class="sidebar__link" routerLink="/reports" routerLinkActive="sidebar__link--active"
+         *ngIf="auth.canEdit()">
+        <mat-icon>summarize</mat-icon>
+        <span>Informes</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__footer">
+      <div class="sidebar__user">
+        <div class="sidebar__avatar">{{ initials() }}</div>
+        <div class="sidebar__user-info">
+          <span class="sidebar__user-name">{{ auth.currentUser()?.name }}</span>
+          <span class="sidebar__user-role">{{ roleLabel() }}</span>
+        </div>
+      </div>
+      <button class="sidebar__logout" (click)="auth.logout()" matTooltip="Cerrar sesión">
+        <mat-icon>logout</mat-icon>
+      </button>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="main">
+    <router-outlet />
+  </main>
+</div>

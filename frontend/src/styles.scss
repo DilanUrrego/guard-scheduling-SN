@@ -1,0 +1,231 @@
+@use 'styles/_variables' as *;
+@use '@angular/material' as mat;
+@use "sass:color";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+// ── Reset y base ─────────────────────────────
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: $font-family;
+  font-size: $font-size-base;
+  color: $color-dark;
+  background: $color-gray-subtle;
+  -webkit-font-smoothing: antialiased;
+}
+
+// ── Angular Material — tema personalizado ────
+
+@include mat.core();
+
+$primary-palette: mat.m2-define-palette((
+  50:  #fff8e1, 100: #ffd14d, 200: #ffc11a, 300: #ffb900,
+  400: #ffb900, 500: #ffb900, 600: #d49a00, 700: #b07f00,
+  800: #8a6400, 900: #5c4200,
+  contrast: (
+    50: rgba(0,0,0,.87), 100: rgba(0,0,0,.87), 200: rgba(0,0,0,.87),
+    300: rgba(0,0,0,.87), 400: rgba(0,0,0,.87), 500: rgba(0,0,0,.87),
+    600: white, 700: white, 800: white, 900: white,
+  )
+), 500, 300, 700);
+
+$accent-palette: mat.m2-define-palette((
+  100: #3d3d3e,
+  500: #2c2c2c,
+   700: #151515,
+  contrast: (500: white)
+), 500);
+
+$theme: mat.m2-define-light-theme((
+  color: (primary: $primary-palette, accent: $accent-palette),
+  typography: mat.m2-define-typography-config($font-family: $font-family),
+  density: 0,
+));
+
+@include mat.all-component-themes($theme);
+
+// ── Scrollbar personalizada ──────────────────
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: $color-gray-subtle; }
+::-webkit-scrollbar-thumb { background: $color-gray-light; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: $color-gray; }
+
+// ── Utilidades globales ──────────────────────
+.page-title {
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: $color-dark;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: $font-size-sm;
+  color: $color-gray;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: $color-white;
+  border-radius: $border-radius-lg;
+  padding: 24px;
+  box-shadow: $shadow-sm;
+  border: 1px solid $color-gray-light;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+
+  &--primary { background: $color-primary-subtle; color: color.scale($color-primary, $lightness: -20%); }
+  &--success { background: $color-success-light;  color: color.scale($color-success, $lightness: -10%); }
+  &--danger  { background: $color-danger-light;   color: color.scale($color-danger, $lightness: -10%);  }
+  &--warning { background: $color-warning-light;  color: color.scale($color-warning, $lightness: -15%); }
+  &--gray    { background: $color-gray-light;     color: $color-gray; }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: $border-radius;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: $transition;
+
+  &--primary {
+    background: $color-primary;
+    color: $color-dark;
+    &:hover { background: $color-primary-dark; }
+  }
+  &--secondary {
+    background: $color-white;
+    color: $color-dark;
+    border: 1px solid $color-gray-light;
+    &:hover { background: $color-gray-subtle; }
+  }
+  &--danger {
+    background: $color-danger-light;
+    color: $color-danger;
+    &:hover { background: color.scale($color-danger-light, $lightness: -5%); }
+  }
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ── Tablas ───────────────────────────────────
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: $color-gray;
+    background: $color-gray-subtle;
+    border-bottom: 1px solid $color-gray-light;
+  }
+
+  td {
+    padding: 12px 16px;
+    font-size: $font-size-sm;
+    border-bottom: 1px solid $color-gray-light;
+  }
+
+  tbody tr {
+    transition: $transition;
+    &:hover { background: $color-primary-subtle; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+// ── Formularios ──────────────────────────────
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+
+  label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-dark-medium;
+  }
+
+  mat-form-field { width: 100%; }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+// ── FullCalendar overrides ───────────────────
+.fc {
+  .fc-toolbar-title { font-size: $font-size-lg; font-weight: 700; color: $color-dark; }
+
+  .fc-button-primary {
+    background: $color-white !important;
+    border: 1px solid $color-gray-light !important;
+    color: $color-dark !important;
+    font-weight: 600 !important;
+    border-radius: $border-radius !important;
+    transition: $transition !important;
+    box-shadow: none !important;
+
+    &:hover { background: $color-gray-subtle !important; }
+    &.fc-button-active {
+      background: $color-primary !important;
+      border-color: $color-primary !important;
+      color: $color-dark !important;
+    }
+  }
+
+  .fc-day-today { background: $color-primary-subtle !important; }
+  .fc-day-sun, .fc-day-sat { background: rgba($color-gray-light, .4) !important; }
+
+  .fc-event {
+    border: none !important;
+    border-radius: $border-radius-sm !important;
+    font-size: $font-size-xs !important;
+    font-weight: 600 !important;
+    padding: 2px 6px !important;
+    cursor: pointer;
+  }
+
+  .fc-col-header-cell {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: $color-gray;
+    padding: 8px 0;
+  }
+}
+
+// ── Estados vacíos ───────────────────────────
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  color: $color-gray;
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px; opacity: .4; }
+  h3 { font-size: $font-size-md; font-weight: 600; margin-bottom: 8px; color: $color-dark; }
+  p  { font-size: $font-size-sm; text-align: center; max-width: 320px; }
+}
