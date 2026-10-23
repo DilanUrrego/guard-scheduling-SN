@@ -90,19 +90,7 @@ import { ShiftConfigFormComponent } from './shift-config-form';
     </div>
   </div>
   `,
-  styles: [`
-    @use '../../../styles/variables' as *;
-    .list-page__header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
-    .list-filters { margin-bottom:20px; padding:16px 20px; }
-    .list-loading { display:flex; justify-content:center; padding:40px; }
-    .table-actions { display:flex; gap:4px; justify-content:flex-end; }
-    .shift-badge {
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:2px 10px; border-radius:$border-radius-sm;
-      font-size:$font-size-sm; font-weight:700; color:white; min-width:40px;
-    }
-    .days-display { font-size:$font-size-xs; font-family:monospace; letter-spacing:1px; }
-  `],
+  styleUrls: ['./shift-configs-list.scss'],
 })
 export class ShiftConfigsListComponent implements OnInit {
   shifts  = signal<any[]>([]);

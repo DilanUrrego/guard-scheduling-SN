@@ -1,0 +1,74 @@
+@use 'variables' as *;
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $color-dark;
+  background-image: radial-gradient(circle at 20% 50%, rgba($color-primary, .15) 0%, transparent 60%),
+                    radial-gradient(circle at 80% 20%, rgba($color-primary, .11) 0%, transparent 50%);
+  padding: 24px;
+}
+
+.login-card {
+  background: $color-white;
+  border-radius: $border-radius-lg;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: $shadow-lg;
+
+  &__header { text-align: center; margin-bottom: 32px; }
+
+  &__logo {
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $color-dark;
+    margin-bottom: 4px;
+  }
+
+  &__subtitle {
+    font-size: $font-size-sm;
+    color: $color-gray;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    mat-form-field { width: 100%; }
+  }
+
+  &__error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: $color-danger-light;
+    color: $color-danger;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    mat-icon { font-size: 18px; }
+  }
+
+  &__submit {
+    margin-top: 8px;
+    height: 46px;
+    background: $color-primary !important;
+    color: $color-dark !important;
+    font-weight: 700 !important;
+    font-size: $font-size-md !important;
+    border-radius: $border-radius !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+}

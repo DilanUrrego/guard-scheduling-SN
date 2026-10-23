@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component, inject, Inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -13,7 +14,7 @@ import { PostService } from '../../core/services/post';
 @Component({
   selector: 'app-post-form',
   standalone: true,
-  imports: [
+  imports: [CommonModule, 
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatButtonModule,
     MatIconModule, MatDividerModule, MatProgressSpinnerModule,
@@ -67,19 +68,7 @@ import { PostService } from '../../core/services/post';
     </div>
   </div>
   `,
-  styles: [`
-    @use '../../../styles/variables' as *;
-    .modal { display:flex; flex-direction:column; }
-    .modal__header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; }
-    .modal__title-group { display:flex; align-items:center; gap:10px; }
-    .modal__icon { color:$color-primary; }
-    .modal__title { font-size:$font-size-md; font-weight:700; }
-    .modal__form { padding:20px 24px; display:flex; flex-direction:column; gap:8px; mat-form-field { width:100%; } }
-    .modal__error { display:flex; align-items:center; gap:8px; padding:10px 14px;
-      background:$color-danger-light; color:$color-danger; border-radius:$border-radius;
-      font-size:$font-size-sm; mat-icon { font-size:18px; } }
-    .modal__actions { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px 20px; }
-  `],
+  styleUrls: ['./post-form.scss'],
 })
 export class PostFormComponent implements OnInit {
     private fb = inject(FormBuilder);

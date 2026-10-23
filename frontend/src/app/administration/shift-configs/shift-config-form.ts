@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component, inject, Inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -14,7 +15,7 @@ import { ShiftConfigService } from '../../core/services/shift-config';
 @Component({
   selector: 'app-shift-config-form',
   standalone: true,
-  imports: [
+  imports: [CommonModule, 
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule,
     MatIconModule, MatDividerModule, MatProgressSpinnerModule,
@@ -102,31 +103,7 @@ import { ShiftConfigService } from '../../core/services/shift-config';
     </div>
   </div>
   `,
-  styles: [`
-    @use '../../../styles/variables' as *;
-    .modal { display:flex; flex-direction:column; }
-    .modal__header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; }
-    .modal__title-group { display:flex; align-items:center; gap:10px; }
-    .modal__icon { color:$color-primary; }
-    .modal__title { font-size:$font-size-md; font-weight:700; }
-    .modal__form { padding:20px 24px; display:flex; flex-direction:column; gap:10px;
-      mat-form-field { width:100%; } }
-    .modal__error { display:flex; align-items:center; gap:8px; padding:10px 14px;
-      background:$color-danger-light; color:$color-danger; border-radius:$border-radius;
-      font-size:$font-size-sm; mat-icon { font-size:18px; } }
-    .modal__actions { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px 20px; }
-
-    .days-selector { display:flex; flex-direction:column; gap:8px; }
-    .days-label { font-size:$font-size-sm; font-weight:600; color:$color-dark-medium; }
-    .days-grid { display:flex; gap:6px; }
-    .day-btn {
-      width:36px; height:36px; border-radius:50%; border:2px solid $color-gray-light;
-      background:white; font-size:$font-size-xs; font-weight:700; cursor:pointer;
-      color:$color-gray; transition:all .15s ease;
-      &--active { background:$color-primary; border-color:$color-primary; color:$color-dark; }
-      &:hover:not(.day-btn--active) { border-color:$color-primary; color:$color-dark; }
-    }
-  `],
+  styleUrls: ['./shift-config-form.scss'],
 })
 export class ShiftConfigFormComponent implements OnInit {
     private fb = inject(FormBuilder);

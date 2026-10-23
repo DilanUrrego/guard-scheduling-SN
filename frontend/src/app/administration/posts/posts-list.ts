@@ -84,13 +84,7 @@ import { PostFormComponent } from './post-form';
     </div>
   </div>
   `,
-  styles: [`
-    @use '../../../styles/variables' as *;
-    .list-page__header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
-    .list-filters { margin-bottom:20px; padding:16px 20px; }
-    .list-loading { display:flex; justify-content:center; padding:40px; }
-    .table-actions { display:flex; gap:4px; justify-content:flex-end; }
-  `],
+  styleUrls: ['./posts-list.scss'],
 })
 export class PostsListComponent implements OnInit {
   posts    = signal<any[]>([]);

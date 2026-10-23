@@ -77,13 +77,7 @@ import { ClientFormComponent } from './client-form';
     </div>
   </div>
   `,
-  styles: [`
-    @use '../../../../styles/variables' as *;
-    .list-page__header { display:flex; align-items:flex-start; justify-content:space-between;
-      gap:16px; margin-bottom:20px; }
-    .list-loading { display:flex; justify-content:center; padding:40px; }
-    .table-actions { display:flex; gap:4px; justify-content:flex-end; }
-  `],
+  styleUrls: ['./clients-list.scss'],
 })
 export class ClientsListComponent implements OnInit {
   clients = signal<any[]>([]);
