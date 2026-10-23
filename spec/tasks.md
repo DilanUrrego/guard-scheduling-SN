@@ -1,6 +1,6 @@
 # Tarefas — Clave Seguridad CTA
 
-> **Versão 0.3** (Aula 3 · 23/10) — código preparado para rodar na AWS.
+> **Versão 0.4** (Aula 3 · 23/10) — infraestrutura da Aula 3 rodando (conta AWS com créditos; migração para o Learner Lab na Aula 4).
 > Cada tarefa é pequena e está ligada a um requisito ou história. **Projeto individual:** todas as tarefas são do autor.
 > **Status:** ⬜ a fazer · 🔄 em andamento · ✅ feito
 > **Regra:** ao implementar com o Claude, dar como contexto `spec/spec.md` + `spec/design.md` + o ID da tarefa, e registrar o prompt em `docs/ia-log.md`.
@@ -43,24 +43,33 @@ O que já funciona localmente e será reaproveitado:
 
 | ID | Tarefa | Req./HU | Resp. | Status |
 |---|---|---|---|---|
-| T-09 | Criar VPC, subnet pública, 2 subnets privadas, IGW e route tables | RNF-01 | Autor | ⬜ |
-| T-10 | Criar `sg-ec2-api`, `sg-lambda` e `sg-rds` (design §6) | RNF-01 | Autor | ⬜ |
-| T-11 | Criar RDS PostgreSQL 16 privado (subnet group, sem acesso público) | RF-01 · RNF-01 | Autor | ⬜ |
+| T-09 | Criar VPC, subnet pública, 2 subnets privadas, IGW e route tables | RNF-01 | Autor | ✅ |
+| T-10 | Criar `cta-api-sg`, `cta-lambda-sg` e `cta-rds-sg` (design §6) | RNF-01 | Autor | ✅ |
+| T-11 | Criar RDS PostgreSQL 16 privado (subnet group, sem acesso público) | RF-01 · RNF-01 | Autor | ✅ |
 | T-12 | Tirar as senhas do `docker-compose.yml` e do `seed.ts` (variáveis de ambiente) e criar `backend/.env.example` | RNF-02 | Autor | ✅ |
 | T-13 | Criar `backend/Dockerfile` e `.dockerignore`; corrigir saída do build (`dist/main.js`) e adicionar `tsx` para o seed | ADR-01 | Autor | ✅ |
 | T-12b | Adicionar `DATABASE_SSL` na conexão (`prisma.service.ts` e `seed.ts`): o RDS PostgreSQL 16 exige SSL | RF-01 | Autor | ✅ |
-| T-14 | EC2 t3.micro com Docker e `LabInstanceProfile`; rodar o container com `.env` | RF-01 | Autor | ⬜ |
-| T-15 | Rodar `prisma migrate deploy` e `prisma db seed` contra o RDS a partir da EC2 | RF-01 · ADR-07 | Autor | ⬜ |
-| T-16 | API Gateway HTTP API: `ANY /api/{proxy+}` → EC2:3000 + CORS | ADR-02 | Autor | ⬜ |
+| T-14 | EC2 t3.micro com Docker e `LabInstanceProfile`; rodar o container com `.env` | RF-01 | Autor | ✅ |
+| T-15 | Rodar `prisma migrate deploy` e `prisma db seed` contra o RDS a partir da EC2 | RF-01 · ADR-07 | Autor | ✅ |
+| T-16 | API Gateway HTTP API: `ANY /api/{proxy+}` → EC2:3000 + CORS | ADR-02 | Autor | ✅ |
 | T-17 | Validar cruce com turno do dia anterior/seguinte que cruza a meia-noite | HU-04 · RN-03 | Autor | ✅ |
-| T-18 | Demo: CRUD de clientes/postos pelo API Gateway (Swagger ou front local) | RF-01 | Autor | ⬜ |
-| T-19 | README: passos de VPC, RDS, EC2 e API Gateway | RNF-03 · RNF-05 | Autor | ✅ |
-| T-20 | Atualizar `tasks.md` e `ia-log.md` | — | Autor | ⬜ |
+| T-18 | Demo: CRUD de clientes/postos pelo API Gateway (Swagger ou front local) | RF-01 | Autor | ✅ |
+| T-19 | README: passos de VPC, RDS, EC2 e API Gateway (com os ajustes do deploy) | RNF-03 · RNF-05 | Autor | ✅ |
+| T-20a | Corrigir imports de estilo do front: estilos em `.scss` + `includePaths` (ADR-11) | HU-10 | Autor | ✅ |
+| T-20b | Importar `CommonModule` em `post-form` e `shift-config-form` (`*ngIf`/`*ngFor` não funcionavam) | HU-01 · HU-02 | Autor | ✅ |
+| T-20c | Configurar CORS do API Gateway para `http://localhost:4200` | ADR-02 | Autor | ✅ |
+| T-20d | Versionar o `frontend/package-lock.json` sincronizado (o do GitHub não batia com o `package.json`) | — | Autor | ⬜ |
+| T-20 | Atualizar `tasks.md` e `ia-log.md` | — | Autor | ✅ |
 
 ## Aula 4 — 30/10 · Upload, Lambdas, relatório e front
 
 | ID | Tarefa | Req./HU | Resp. | Status |
 |---|---|---|---|---|
+| T-21a | Recriar VPC, SGs, RDS, EC2 e API Gateway no **Learner Lab** seguindo o README | RNF-03 · ADR-12 | Autor | ⬜ |
+| T-21b | Associar `LabInstanceProfile` à EC2 | RF-02 | Autor | ⬜ |
+| T-21c | Restringir a saída do `cta-lambda-sg` (5432 → `cta-rds-sg`, 443 → S3) | RNF-01 | Autor | ⬜ |
+| T-21d | Acrescentar a URL do S3 website no CORS do API Gateway | HU-10 | Autor | ⬜ |
+| T-21e | Excluir os recursos da conta com créditos (RDS, EC2, API Gateway, VPC) | ADR-12 | Autor | ⬜ |
 | T-21 | Bucket `cta-supports-*` privado com CORS | RF-02 | Autor | ⬜ |
 | T-22 | Modelo `SupportDocument` + nova migration | RF-03 | Autor | ⬜ |
 | T-23 | `POST /api/novelties/:id/upload-url` (`@aws-sdk/s3-request-presigner`, tipo/tamanho, 5 min) | HU-07 | Autor | ⬜ |

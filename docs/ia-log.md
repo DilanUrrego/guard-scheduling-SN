@@ -130,4 +130,50 @@ Agora vamos fazer a entrega da Aula 3. Como você recomenda fazer: Swagger ou An
 - ✅ Demo do CRUD com o **Angular local** apontando para o API Gateway, com o **Swagger** como plano B.
 - ✅ VPC criada pelo assistente "VPC and more" (2 públicas + 2 privadas, sem NAT, com endpoint S3).
 - ✅ SSH só pelo EC2 Instance Connect (prefix list da AWS), em vez de abrir a porta 22 para o meu IP.
-- *[preencher: algo que eu testei e mudei durante o deploy]*
+- ✏️ Corrigido por mim: os nomes de Security Group propostos (`sg-ec2-api`, `sg-lambda`, `sg-rds`) não são aceitos pela AWS, porque o prefixo `sg-` é reservado. Renomeei para `cta-api-sg`, `cta-lambda-sg` e `cta-rds-sg` (detalhes na Entrada 05).
+
+---
+
+## Entrada 05 — Deploy da Aula 3 e depuração com a IA
+
+- **Data:** 22–23/10/2026 (madrugada antes da Aula 3)
+- **Ferramenta:** Claude (chat), com acesso à pasta local do projeto para editar o front-end
+- **Contexto dado:** README da Aula 3, mensagens de erro do console da AWS, do terminal da EC2 e do navegador
+
+**Prompts (originais em espanhol, resumidos):**
+```
+"Dá-me o passo a passo para criar a infraestrutura."
+"Os security groups não podem começar com sg-; como os nomeio?"
+"Não aparece vockey nem LabInstanceProfile."
+"docker: command not found" (+ log do cloud-init)
+"Error: P1001 / P1000" (+ saída do prisma migrate deploy)
+"{"message":"Service Unavailable"}" ao abrir o Swagger pelo API Gateway
+"Erros de rotas de estilos no Angular; podes separar os styles em arquivos?"
+"Login: credenciais inválidas" (+ erro de CORS do console)
+```
+
+**Problemas, causa e solução:**
+
+| # | Sintoma | Causa | Solução | Quem identificou |
+|---|---|---|---|---|
+| 1 | AWS recusou o nome `sg-ec2-api` | `sg-` é reservado para IDs | Padrão `cta-<camada>-sg` | **Eu** (corrigi a proposta da IA) |
+| 2 | Sem `vockey` nem `LabInstanceProfile` | Estava numa conta AWS com créditos, não no Learner Lab | Seguir nessa conta respeitando as restrições do lab; migrar na Aula 4 (ADR-12) | IA levantou a hipótese, eu confirmei |
+| 3 | `docker: command not found` | O *user data* foi colado com espaços antes de `#!/bin/bash` e não executou | Instalação manual; README corrigido | IA, pelo log do cloud-init |
+| 4 | `P1001 Can't reach database server` | Rede entre EC2 e RDS — *[confirmar: SG da EC2 diferente de `cta-api-sg` / regra do `cta-rds-sg`]* | *[confirmar o que alterei]* | Eu, seguindo o checklist da IA |
+| 5 | `P1000 Authentication failed` | Usuário `cta-admin` (com hífen) no `.env`; o RDS não aceita hífen no usuário | Usar o *Master username* exato | IA |
+| 6 | `503 Service Unavailable` no API Gateway | API Gateway não alcançava a EC2 — *[confirmar: URL da integração / porta 3000]* | *[confirmar o que alterei]* | Eu, seguindo o checklist da IA |
+| 7 | Build do Angular falhava ao importar estilos | 3 componentes com um `../` a mais no `@use` | Estilos em `.scss` + `includePaths` (ADR-11) | Eu propus separar os estilos; a IA acrescentou o `includePaths` |
+| 8 | Formulários de turnos e postos sem botões de dias/mensagens | `*ngIf`/`*ngFor` sem `CommonModule` | Importar `CommonModule` | IA, pelos warnings do build |
+| 9 | Login mostrava "credenciais inválidas" | Na verdade era **CORS** no preflight; o front mostra a mesma mensagem para qualquer erro | Configurar o CORS do API Gateway — *[confirmar a opção usada]* | IA, pelo console do navegador |
+| 10 | `npm ci` falhava com o lock do GitHub | `package-lock.json` versionado desatualizado | Versionar o lock local | IA |
+
+**O que aceitei, corrigi ou rejeitei:**
+- ✅ Aceito: separar estilos em `.scss` + `includePaths`, `CommonModule`, diagnóstico de CORS.
+- ✏️ Corrigido por mim: nomes dos Security Groups; *user data* colado sem espaços.
+- ❌ Rejeitado: criar um role IAM próprio na conta com créditos — não seria possível no Learner Lab.
+
+**Aprendizados:**
+- Ler a mensagem exata do erro muda tudo: P1001 é **rede**, P1000 é **credencial**, 503 é **integração**.
+- Testar por camadas (EC2 direto na porta 3000 → API Gateway → navegador) mostra em qual trecho está o problema.
+- Uma mensagem de erro do front pode enganar ("credenciais inválidas"); o console do navegador mostra a causa real.
+- A IA propôs nomes inválidos e um *user data* frágil; eu preciso validar tudo no console antes de aceitar.

@@ -15,8 +15,8 @@ Sistema web para programar turnos de vigilantes de uma empresa de segurança pri
 | Artefato | Caminho | Status |
 |---|---|---|
 | Especificação | `spec/spec.md` | v0.3 |
-| Design / arquitetura | `spec/design.md` | v0.3 (Aula 3) |
-| Tarefas | `spec/tasks.md` | v0.3 (Aula 3) |
+| Design / arquitetura | `spec/design.md` | v0.4 (Aula 3) |
+| Tarefas | `spec/tasks.md` | v0.4 (Aula 3) |
 | Log de IA | `docs/ia-log.md` | em andamento |
 | Landing page (S3) | `landing/index.html` | Aula 2 |
 | Backend (NestJS + Prisma) | `backend/` | Docker na EC2 |
@@ -47,21 +47,23 @@ Todos na VPC `cta-vpc`:
 
 | Nome | Inbound | Por quê |
 |---|---|---|
-| `sg-ec2-api` | TCP **3000** de `0.0.0.0/0` · TCP **22** da prefix list `com.amazonaws.us-east-1.ec2-instance-connect` | API Gateway chama a API; SSH só pelo EC2 Instance Connect do console |
-| `sg-lambda` | nenhuma | as Lambdas (Aula 4) só iniciam conexões |
-| `sg-rds` | TCP **5432** com origem **`sg-ec2-api`** e outra regra com origem **`sg-lambda`** | só a EC2 e as Lambdas chegam ao banco (RNF-01) |
+| `cta-api-sg` | TCP **3000** de `0.0.0.0/0` · TCP **22** da prefix list `com.amazonaws.us-east-1.ec2-instance-connect` | API Gateway chama a API; SSH só pelo EC2 Instance Connect do console |
+| `cta-lambda-sg` | nenhuma | as Lambdas (Aula 4) só iniciam conexões |
+| `cta-rds-sg` | TCP **5432** com origem **`cta-api-sg`** e outra regra com origem **`cta-lambda-sg`** | só a EC2 e as Lambdas chegam ao banco (RNF-01) |
 
-Crie `sg-ec2-api` e `sg-lambda` primeiro, porque o `sg-rds` aponta para eles.
+Crie `cta-api-sg` e `cta-lambda-sg` primeiro, porque o `cta-rds-sg` aponta para eles.
+
+> O nome de um Security Group **não pode começar com `sg-`** (prefixo reservado para os IDs). Mantenha a saída (outbound) padrão.
 
 ### 3. RDS PostgreSQL (privado)
 
 1. **RDS → Subnet groups → Create**: nome `cta-db-subnets`, VPC `cta-vpc`, as **2 subnets privadas**.
 2. **RDS → Create database → Standard create**:
    - Engine: **PostgreSQL 16.x** · Template: **Free tier** (ou Dev/Test).
-   - DB instance identifier: `cta-db` · Master username: `cta_admin`.
-   - Credentials management: **Self managed** → defina a senha (guarde fora do Git).
+   - DB instance identifier: `cta-db` · Master username: `cta_admin` (só letras, números e `_`; **hífen não é aceito**).
+   - Credentials management: **Self managed** → defina a senha (guarde fora do Git). Evite `@ : / ? #`, porque a senha vai dentro de uma URL.
    - Instance: **db.t3.micro** · Storage: 20 GB, *sem* autoscaling.
-   - Connectivity: VPC `cta-vpc`, subnet group `cta-db-subnets`, **Public access: No**, Security group: **`sg-rds`** (remova o `default`).
+   - Connectivity: VPC `cta-vpc`, subnet group `cta-db-subnets`, **Public access: No**, Security group: **`cta-rds-sg`** (remova o `default`).
    - Monitoring: **desmarque Enhanced monitoring** (o Learner Lab não permite criar o role).
    - *Additional configuration* → **Initial database name: `clave_scheduling`**.
 3. Espere o status **Available** (~10 min) e copie o **Endpoint**.
@@ -70,19 +72,21 @@ Crie `sg-ec2-api` e `sg-lambda` primeiro, porque o `sg-rds` aponta para eles.
 
 ### 4. EC2 com Docker
 
-1. **EC2 → Launch instance**: nome `cta-api`, **Amazon Linux 2023**, **t3.micro**, key pair `vockey`.
-2. Network settings → *Edit*: VPC `cta-vpc`, uma **subnet pública**, *Auto-assign public IP*: **Enable**, Security group: **`sg-ec2-api`**.
+1. **EC2 → Launch instance**: nome `cta-api`, **Amazon Linux 2023**, **t3.micro**, key pair `vockey` (Learner Lab), storage **16 GiB**.
+2. Network settings → *Edit*: VPC `cta-vpc`, uma **subnet pública**, *Auto-assign public IP*: **Enable**, *Select existing security group*: **`cta-api-sg`** (senão o assistente cria um `launch-wizard-1` que o RDS não aceita).
 3. Advanced details → IAM instance profile: **`LabInstanceProfile`**.
 4. Advanced details → **User data**:
    ```bash
    #!/bin/bash
-   dnf install -y docker git postgresql16
+   dnf install -y docker git
    systemctl enable --now docker
    usermod -aG docker ec2-user
    # 1 GB de swap: a t3.micro tem só 1 GB de RAM para compilar
    dd if=/dev/zero of=/swapfile bs=1M count=1024 && chmod 600 /swapfile
    mkswap /swapfile && swapon /swapfile && echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+   dnf install -y postgresql16 || dnf install -y postgresql15
    ```
+   ⚠️ Cole **sem espaços no início das linhas**: `#!/bin/bash` precisa estar na primeira coluna, senão o script não roda. Para conferir: `sudo tail -n 20 /var/log/cloud-init-output.log`. Se falhou, rode os mesmos comandos com `sudo` no terminal.
 5. **Launch**. Quando estiver *Running*, clique em **Connect → EC2 Instance Connect → Connect**.
 
 ### 5. Backend no container
@@ -106,6 +110,10 @@ FRONTEND_URL=http://localhost:4200
 PORT=3000
 SEED_PASSWORD=<senha inicial dos usuários de exemplo>
 ```
+
+Erros comuns ao conectar no banco:
+- **P1001 *Can't reach database server*** → rede: confira se a EC2 usa `cta-api-sg` e se o `cta-rds-sg` libera 5432 a partir dele.
+- **P1000 *Authentication failed*** → usuário ou senha: o usuário é exatamente o *Master username* (ex.: `cta_admin`, com `_`).
 
 Construa a imagem, crie as tabelas e suba a API:
 
@@ -136,6 +144,11 @@ psql "postgresql://cta_admin:<SENHA>@<ENDPOINT-DO-RDS>:5432/clave_scheduling?ssl
 6. Copie a **Invoke URL** (`https://<id>.execute-api.us-east-1.amazonaws.com`).
 
 Teste: abra `https://<id>.execute-api.us-east-1.amazonaws.com/api/docs` → o Swagger deve carregar.
+
+| Sintoma | Causa provável |
+|---|---|
+| `{"message":"Service Unavailable"}` (503) | A integração usa o DNS **privado** (`ip-10-…`), `https://`, falta `:3000`, ou o SG da EC2 não libera a porta 3000. Teste antes `http://<DNS-PÚBLICO>:3000/api/docs` |
+| Login diz "credenciais inválidas" e o console do navegador mostra erro de **CORS** | Origem diferente de `http://localhost:4200` (sem `/` no final) ou faltam os headers `content-type`/`authorization` no CORS do API Gateway |
 
 ### 7. Front-end apontando para a AWS (até a Aula 4, rodando local)
 

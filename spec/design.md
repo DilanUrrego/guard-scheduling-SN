@@ -1,6 +1,6 @@
 # Design — Clave Seguridad CTA · Programação de Turnos
 
-> **Versão 0.3** (Aula 3 · 23/10) — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
+> **Versão 0.4** (Aula 3 · 23/10) — atualizada com o que está rodando na AWS — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
 > Legenda: ✅ já existe no código · 🆕 a implementar no Projeto 2.
 
 ## 1. Visão geral
@@ -223,8 +223,9 @@ ORDER BY c.name, p.name;
 
 ### 4.4 CORS
 
-- **API Gateway:** `AllowOrigins` = URL do S3 website (e `http://localhost:4200` em desenvolvimento); métodos `GET, POST, PATCH, DELETE, OPTIONS`; headers `Content-Type, Authorization`.
-- **NestJS:** já usa `FRONTEND_URL` em `enableCors` → definir com a URL do S3 website no `.env` da EC2.
+- **API Gateway:** `AllowOrigins` = `http://localhost:4200` (Aula 3) + URL do S3 website (Aula 4), **sem `/` no final**; métodos `GET, POST, PATCH, DELETE, OPTIONS`; headers `content-type` e `authorization` (cada um numa entrada); `AllowCredentials = No` (o front usa token Bearer, não cookies).
+- Com CORS configurado no API Gateway, **é ele que responde o preflight `OPTIONS`**; o `enableCors` do NestJS só vale se o CORS do API Gateway estiver vazio.
+- **NestJS:** usa `FRONTEND_URL` em `enableCors` (plano B, se o CORS do API Gateway for removido).
 - **Bucket de suportes:** `AllowedMethods: PUT, GET`, `AllowedOrigins` = URL do S3 website, `AllowedHeaders: *`.
 
 ## 5. Recursos AWS
@@ -237,24 +238,42 @@ ORDER BY c.name, p.name;
 | Route tables | `cta-rt-public` / `cta-rt-private` | pública → IGW; privada → só local + endpoint S3 |
 | VPC Endpoint | `cta-s3-endpoint` | Gateway, S3, associado a `cta-rt-private` |
 | RDS | `cta-db` | PostgreSQL 16, db.t3.micro, 20 GB gp3, sem acesso público |
-| EC2 | `cta-api` | t3.micro, Amazon Linux 2023, Docker, `LabInstanceProfile` |
+| EC2 | `cta-api` | t3.micro, Amazon Linux 2023, 16 GiB, Docker + 1 GB de swap, `LabInstanceProfile` (necessário a partir da Aula 4 para gerar URLs pré-assinadas) |
 | S3 website | `cta-front-*` | Static website hosting, leitura pública (landing na Aula 2, Angular na Aula 4) |
 | S3 suportes | `cta-supports-*` | Privado, CORS, evento `s3:ObjectCreated:*` prefixo `supports/` → `process-support` |
-| Lambda | `process-support` | Node.js 20, `LabRole`, VPC privada, `sg-lambda` |
-| Lambda | `report-hours-by-client` | Node.js 20, `LabRole`, VPC privada, `sg-lambda` |
+| Lambda | `process-support` | Node.js 20, `LabRole`, VPC privada, `cta-lambda-sg` |
+| Lambda | `report-hours-by-client` | Node.js 20, `LabRole`, VPC privada, `cta-lambda-sg` |
 | API Gateway | `cta-api-gw` | HTTP API, rotas §4, CORS §4.4 |
 
 ## 6. Security Groups
 
 | SG | Entrada | Saída | Por quê |
 |---|---|---|---|
-| `sg-ec2-api` | TCP 3000 de 0.0.0.0/0 · TCP 22 da prefix list `com.amazonaws.us-east-1.ec2-instance-connect` | Tudo | O API Gateway HTTP API chega à EC2 pela internet (VPC Link exigiria NLB/ALB, que são pagos). SSH só pelo EC2 Instance Connect do console, para o deploy. |
-| `sg-lambda` | Nenhuma | TCP 5432 → `sg-rds` · TCP 443 → prefix list do S3 | A Lambda só inicia conexões. |
-| `sg-rds` | TCP 5432 **somente de `sg-ec2-api` e `sg-lambda`** | — | RNF-01: nada da internet chega ao banco. |
+| `cta-api-sg` | TCP 3000 de 0.0.0.0/0 · TCP 22 da prefix list `com.amazonaws.us-east-1.ec2-instance-connect` | Tudo | O API Gateway HTTP API chega à EC2 pela internet (VPC Link exigiria NLB/ALB, que são pagos). SSH só pelo EC2 Instance Connect do console, para o deploy. |
+| `cta-lambda-sg` | Nenhuma | Hoje: padrão (tudo). Aula 4: só TCP 5432 → `cta-rds-sg` e TCP 443 → prefix list do S3 | A Lambda só inicia conexões. Mesmo com a saída aberta, a subnet privada não tem rota para a internet. |
+| `cta-rds-sg` | TCP 5432 **somente de `cta-api-sg` e `cta-lambda-sg`** | — | RNF-01: nada da internet chega ao banco. |
 
 Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP público).
 
-## 7. ADRs
+**Observações:**
+- O prefixo `sg-` é reservado pela AWS para os IDs dos grupos; por isso os nomes seguem o padrão `cta-<camada>-sg`.
+- Os Security Groups são *stateful*: a resposta de uma conexão aceita na entrada sai sem precisar de regra de saída.
+- Regras só **permitem**; uma regra a mais (ex.: SSH) nunca bloqueia outra.
+
+## 7. Estado do deploy (Aula 3 · 23/10)
+
+| Componente | Estado | Evidência |
+|---|---|---|
+| VPC `cta-vpc` (2 subnets públicas, 2 privadas, sem NAT, endpoint S3) | ✅ | console VPC |
+| Security Groups `cta-api-sg`, `cta-lambda-sg`, `cta-rds-sg` | ✅ | console VPC |
+| RDS PostgreSQL 16 privado | ✅ | *Public access: No*; `nslookup` responde `10.0.x.x` |
+| Migration + seed aplicados no RDS | ✅ | `prisma migrate deploy` / `db seed` a partir da EC2 |
+| EC2 + container `cta-api` | ✅ | `docker ps`, `curl localhost:3000/api` |
+| API Gateway `ANY /api/{proxy+}` → EC2 | ✅ | Swagger em `<invoke-url>/api/docs` |
+| Angular local consumindo o API Gateway | ✅ | login e CRUD de clientes/postos |
+| Lambdas, bucket de suportes, Angular no S3 | ⬜ | Aula 4 |
+
+## 8. ADRs
 
 ### ADR-01 — CRUD em container (EC2 + Docker), não em Lambda · **RNF-04**
 - **Contexto:** o backend já existe: 10 módulos NestJS, cerca de 50 rotas, JWT com papéis e validação de cruces de turno.
@@ -292,6 +311,16 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 - **Contexto:** o RDS PostgreSQL 16 exige SSL (`rds.force_ssl = 1`). O driver `pg` valida o certificado e rejeita o da AWS, que não está na lista de confiança do Node.
 - **Decisão:** variável `DATABASE_SSL=true` → o `Pool` usa `ssl: { rejectUnauthorized: false }`. O Prisma CLI (migrations) usa `sslmode=prefer` por padrão e conecta sem mudanças.
 - **Por quê:** o tráfego continua criptografado e fica só dentro da VPC privada; não é preciso distribuir o bundle de certificados do RDS.
+
+### ADR-11 — Estilos dos componentes em arquivos `.scss` com `includePaths`
+- **Contexto:** 9 componentes tinham `styles: [...]` dentro do `.ts` e importavam as variáveis com caminhos relativos (`../../../styles/variables`); 3 deles tinham um `../` a mais e quebravam o build.
+- **Decisão:** cada componente tem o seu `.scss` (`styleUrls`), e o `angular.json` define `stylePreprocessorOptions.includePaths: ["src/styles"]`, de modo que todos importam com `@use 'variables' as *;`.
+- **Por quê:** separa estilo de lógica e elimina a dependência da profundidade da pasta: mover um componente não quebra mais o import.
+
+### ADR-12 — Aula 3 implantada numa conta AWS com créditos
+- **Contexto:** a infraestrutura da Aula 3 foi criada numa conta AWS com créditos (não no Learner Lab), onde não existem `vockey` nem `LabInstanceProfile`.
+- **Decisão:** respeitar as restrições do Learner Lab mesmo assim (sem roles IAM próprios, sem NAT, instâncias pequenas, sem IaC) e recriar tudo no Learner Lab na Aula 4 seguindo o README.
+- **Consequências:** a EC2 roda sem instance profile (não é necessário enquanto a API não acessa o S3). Ao terminar a apresentação, os recursos da conta com créditos são excluídos para não gerar custo. A recriação no Learner Lab serve também como teste do RNF-03.
 
 ### ADR-08 — Segredos fora do repositório
 - **Decisão:** `DATABASE_URL`, `DATABASE_SSL`, `JWT_SECRET`, `FRONTEND_URL` e `SEED_PASSWORD` em `.env` na EC2 (ignorado pelo Git e pelo Docker) e em variáveis de ambiente das Lambdas. O `docker-compose.yml` e o `seed.ts` deixaram de ter senhas escritas; `backend/.env.example` documenta as variáveis sem valores.
