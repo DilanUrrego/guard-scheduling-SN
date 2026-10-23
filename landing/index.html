@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clave Seguridad CTA — Programación de Turnos</title>
+  <style>
+    :root {
+      --amarillo: #f5b800;
+      --oscuro: #1c1f26;
+      --gris: #5f6673;
+      --claro: #f4f5f7;
+      --blanco: #ffffff;
+      --borde: #e3e5e9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--oscuro); background: var(--claro); line-height: 1.55; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+    header { background: var(--oscuro); color: var(--blanco); padding: 18px 0; }
+    header .wrap { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--amarillo); color: var(--oscuro); display: grid; place-items: center; font-weight: 800; }
+    header strong { font-size: 1.05rem; }
+    header span { color: #aab0bb; font-size: .9rem; }
+
+    .hero { background: var(--oscuro); color: var(--blanco); padding: 56px 0 72px; }
+    .hero h1 { font-size: clamp(1.9rem, 4vw, 2.8rem); line-height: 1.15; max-width: 720px; }
+    .hero h1 em { color: var(--amarillo); font-style: normal; }
+    .hero p { color: #c9ced6; max-width: 640px; margin-top: 16px; font-size: 1.08rem; }
+    .tag { display: inline-block; background: rgba(245,184,0,.15); color: var(--amarillo); padding: 4px 12px; border-radius: 20px; font-size: .8rem; font-weight: 700; letter-spacing: .5px; margin-bottom: 18px; }
+
+    section { padding: 56px 0; }
+    h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .sub { color: var(--gris); margin-bottom: 28px; }
+
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card { background: var(--blanco); border: 1px solid var(--borde); border-radius: 12px; padding: 22px; }
+    .card h3 { font-size: 1.02rem; margin-bottom: 6px; }
+    .card p { color: var(--gris); font-size: .94rem; }
+    .num { font-size: .78rem; font-weight: 800; color: var(--amarillo); letter-spacing: .5px; margin-bottom: 8px; display: block; }
+
+    .problema { background: var(--blanco); border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
+    .lista { list-style: none; display: grid; gap: 10px; }
+    .lista li { padding-left: 28px; position: relative; color: var(--gris); }
+    .lista li::before { content: "✕"; position: absolute; left: 0; color: #d9534f; font-weight: 700; }
+
+    .flujo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .paso { background: var(--blanco); border: 1px solid var(--borde); border-radius: 10px; padding: 10px 14px; font-size: .92rem; }
+    .flecha { color: var(--gris); }
+
+    table { width: 100%; border-collapse: collapse; background: var(--blanco); border-radius: 12px; overflow: hidden; border: 1px solid var(--borde); }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--borde); font-size: .93rem; }
+    th { background: var(--claro); }
+    td:first-child { font-weight: 700; white-space: nowrap; }
+    .tabla-wrap { overflow-x: auto; }
+
+    footer { background: var(--oscuro); color: #aab0bb; padding: 24px 0; font-size: .88rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="wrap">
+      <div class="logo">CS</div>
+      <div><strong>Clave Seguridad CTA</strong><br><span>Sistema de Programación de Turnos</span></div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap">
+      <span class="tag">PROYECTO 2 · SERVICIOS EN LA NUBE · AWS</span>
+      <h1>Programación de vigilantes <em>sin conflictos</em>, en la nube.</h1>
+      <p>Reemplaza la hoja de Excel con macros: centraliza clientes, puestos, turnos y novedades, valida cruces de horario automáticamente y guarda los soportes documentales en Amazon S3.</p>
+    </div>
+  </div>
+
+  <section class="problema">
+    <div class="wrap">
+      <h2>El problema</h2>
+      <p class="sub">Así se programaba antes:</p>
+      <ul class="lista">
+        <li>Solo una persona podía editar la hoja a la vez.</li>
+        <li>Un vigilante podía quedar programado en su día de descanso o en dos turnos que se cruzan.</li>
+        <li>Las incapacidades y licencias llegaban por WhatsApp y no se sabía cuáles faltaban.</li>
+        <li>El informe de horas por cliente se armaba a mano.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Qué hace el sistema</h2>
+      <p class="sub">Cada funcionalidad responde a un requisito del proyecto.</p>
+      <div class="grid">
+        <div class="card"><span class="num">RF-01</span><h3>Gestión y programación</h3><p>Clientes, puestos, tipos de turno, vigilantes y programación con validación de descansos y cruces.</p></div>
+        <div class="card"><span class="num">RF-02</span><h3>Soportes documentales</h3><p>El vigilante sube la foto o PDF de su incapacidad directo a S3 con una URL pre-firmada.</p></div>
+        <div class="card"><span class="num">RF-03</span><h3>Registro automático</h3><p>Una Lambda detecta el archivo nuevo y marca la novedad como “soporte entregado”.</p></div>
+        <div class="card"><span class="num">RF-04</span><h3>Informe por cliente</h3><p>Turnos y horas programadas por cliente y puesto en el mes, vía API Gateway + Lambda.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <h2>Ejemplo del flujo</h2>
+      <p class="sub">Un vigilante entrega su incapacidad:</p>
+      <div class="flujo">
+        <div class="paso">1. Elige el PDF</div><span class="flecha">→</span>
+        <div class="paso">2. El backend genera la URL pre-firmada</div><span class="flecha">→</span>
+        <div class="paso">3. El archivo sube directo a S3</div><span class="flecha">→</span>
+        <div class="paso">4. S3 dispara la Lambda</div><span class="flecha">→</span>
+        <div class="paso">5. RDS: novedad “ENTREGADO”</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <h2>Arquitectura en AWS</h2>
+      <p class="sub">Recursos del AWS Learner Lab, creados por consola (sin IaC).</p>
+      <div class="tabla-wrap">
+        <table>
+          <tr><th>Servicio</th><th>Uso</th></tr>
+          <tr><td>Amazon S3</td><td>Este sitio web estático y el bucket privado de soportes</td></tr>
+          <tr><td>API Gateway</td><td>Punto de entrada único de la API, con CORS</td></tr>
+          <tr><td>EC2 + Docker</td><td>API NestJS con el CRUD (ADR-01)</td></tr>
+          <tr><td>AWS Lambda</td><td>Procesar soportes e informe por cliente</td></tr>
+          <tr><td>Amazon RDS</td><td>PostgreSQL en subred privada, sin acceso público</td></tr>
+          <tr><td>VPC Endpoint</td><td>Acceso de las Lambdas a S3 sin NAT Gateway</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">Clave Seguridad CTA · Proyecto 2 — Servicios en la Nube · 2026</div>
+  </footer>
+
+</body>
+</html>

@@ -1,242 +1,302 @@
 # Design — Clave Seguridad CTA · Programação de Turnos
 
-> Versão 0.1 (Aula 2 · 16/10). Baseado em `specs/spec.md` v0.2. Região: `us-east-1` (Learner Lab).
+> **Versão 0.3** (Aula 3 · 23/10) — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
+> Legenda: ✅ já existe no código · 🆕 a implementar no Projeto 2.
 
 ## 1. Visão geral
 
-- **Front-end:** Angular (build estático) no **S3 static website**.
-- **Entrada única da API:** **API Gateway (HTTP API)** — uma URL estável e CORS num só lugar.
-  - `ANY /api/{proxy+}` → HTTP proxy para o **NestJS em Docker numa EC2 t3.micro** (CRUD, RF-01; URL pré-assinada, RF-02).
-  - `GET /relatorios/programacion-por-cliente` → **Lambda `relatorio-programacion`** (RF-04).
-- **Uploads:** bucket S3 privado; o evento `ObjectCreated` em `soportes/` dispara a **Lambda `procesa-soporte`** (RF-03).
-- **Banco:** **RDS PostgreSQL db.t3.micro** em subnets privadas (RNF-01).
-- **Sem NAT Gateway:** as Lambdas na VPC acessam o S3 por **VPC Gateway Endpoint** (gratuito).
+| Camada | Tecnologia | Onde roda na AWS | Estado |
+|---|---|---|---|
+| Front-end | Angular 20 + Angular Material + FullCalendar | **S3 static website** | ✅ código · 🆕 publicação |
+| API (CRUD, login, URL pré-assinada) | NestJS 11 + Prisma 7, prefixo global `/api`, JWT | **Docker numa EC2 t3.micro** | ✅ código · 🆕 Dockerfile e deploy |
+| Entrada da API | — | **API Gateway (HTTP API)** | 🆕 |
+| Banco | PostgreSQL 16 | **RDS db.t3.micro** em subnets privadas | ✅ schema · 🆕 RDS |
+| Processar suporte (RF-03) | Node.js 20 + `pg` | **Lambda `process-support`** | 🆕 |
+| Relatório (RF-04) | Node.js 20 + `pg` | **Lambda `report-hours-by-client`** | 🆕 |
+| Arquivos de suporte | — | **S3 privado `cta-supports-*`** | 🆕 |
 
 ## 2. Diagrama de arquitetura
 
 ```mermaid
 flowchart LR
-  U[Navegador] -->|HTTP| W[S3 static website<br/>Angular]
-  U -->|HTTPS /api/* e /relatorios/*| G[API Gateway<br/>HTTP API]
-  U -->|PUT com URL pré-assinada| B[(S3 uploads<br/>soportes/)]
+  U[Navegador] -->|HTTP| W[S3 static website<br/>Angular build]
+  U -->|HTTPS + JWT| G[API Gateway<br/>HTTP API]
+  U -->|PUT com URL pré-assinada| B[(S3 privado<br/>supports/)]
 
-  subgraph VPC 10.0.0.0/16
-    subgraph Subnet pública 10.0.1.0/24
+  subgraph VPC["VPC 10.0.0.0/16"]
+    subgraph PUB["Subnets públicas 10.0.0.0/20 · 10.0.16.0/20"]
       E[EC2 t3.micro<br/>Docker: NestJS + Prisma]
     end
-    subgraph Subnets privadas 10.0.11.0/24 · 10.0.12.0/24
+    subgraph PRIV["Subnets privadas 10.0.128.0/20 · 10.0.144.0/20"]
       R[(RDS PostgreSQL<br/>db.t3.micro)]
-      L1[Lambda<br/>procesa-soporte]
-      L2[Lambda<br/>relatorio-programacion]
+      L1[Lambda<br/>process-support]
+      L2[Lambda<br/>report-hours-by-client]
     end
     VE[VPC Gateway Endpoint S3]
   end
 
-  G -->|/api/*| E
-  G -->|/relatorios/*| L2
+  G -->|ANY /api/proxy+| E
+  G -->|GET /api/reports/hours-by-client| L2
   E -->|SQL 5432| R
   E -->|gera URL pré-assinada| B
   B -->|evento ObjectCreated| L1
   L1 -->|HeadObject| VE --> B
-  L1 -->|INSERT/UPDATE| R
+  L1 -->|INSERT / UPDATE| R
   L2 -->|SELECT JOIN GROUP BY| R
-  L1 & L2 -.->|logs| CW[CloudWatch Logs]
+  L1 -.->|logs| CW[CloudWatch Logs]
+  L2 -.->|logs| CW
 ```
 
 **Fluxo de exemplo (RF-02 + RF-03):**
-1. O vigilante abre a novidade #45 e escolhe `atestado.pdf`.
-2. O front chama `POST /api/novedades/45/upload-url` → a EC2 devolve a URL pré-assinada para `soportes/novedad-45/3f2a…-atestado.pdf`.
-3. O navegador faz `PUT` direto no S3.
-4. O S3 dispara `procesa-soporte`, que lê o `ContentType` (HeadObject via endpoint), insere em `documento` e muda a novidade #45 para `ENTREGADO`.
+1. O vigilante (ou o coordenador) abre uma novidade de incapacidade e escolhe `incapacidad.pdf`.
+2. O front chama `POST /api/novelties/{id}/upload-url` → a EC2 devolve uma URL pré-assinada para `supports/novelty-{id}/{uuid}-incapacidad.pdf`.
+3. O navegador faz `PUT` do arquivo direto no S3.
+4. O S3 dispara `process-support`, que lê o `ContentType` (HeadObject via endpoint), insere em `support_documents` e marca `novelties.support_submitted = true`.
+5. A novidade some do filtro "suporte pendente" (`GET /api/novelties?support_pending=true`).
 
-## 3. Modelo de dados (ER)
+## 3. Modelo de dados
+
+Fonte da verdade: `backend/prisma/schema.prisma`. Tabelas em snake_case, IDs `uuid`.
 
 ```mermaid
 erDiagram
-  CLIENTE ||--o{ PUESTO : tem
-  PUESTO ||--o{ TIPO_TURNO : define
-  VIGILANTE ||--o{ PROGRAMACION : recebe
-  TIPO_TURNO ||--o{ PROGRAMACION : usado_em
-  VIGILANTE ||--o{ NOVEDAD : tem
-  NOVEDAD ||--o{ DOCUMENTO : comprova
+  CLIENTS ||--o{ POSTS : "tem"
+  POSTS ||--o{ SHIFT_CONFIGS : "define"
+  SHIFT_CONFIGS ||--o{ SCHEDULES : "usado em"
+  GUARDS ||--o{ SCHEDULES : "recebe"
+  GUARDS ||--o{ RESTS : "descansa"
+  GUARDS ||--o{ NOVELTIES : "tem"
+  NOVELTY_TYPES ||--o{ NOVELTIES : "classifica"
+  POSTS ||--o{ NOVELTIES : "ocorre em"
+  SCHEDULES |o--o| NOVELTIES : "afeta"
+  NOVELTIES ||--o{ SUPPORT_DOCUMENTS : "comprova (novo)"
+  USERS ||--o{ SCHEDULES : "cria/modifica"
+  USERS ||--o{ NOVELTIES : "registra"
 
-  CLIENTE { int id PK
-    varchar nombre
-    varchar nit UK
-    varchar telefono
-    boolean activo }
-  PUESTO { int id PK
-    int cliente_id FK
-    varchar nombre
-    varchar direccion
-    boolean activo }
-  TIPO_TURNO { int id PK
-    int puesto_id FK
-    varchar nombre
-    time hora_inicio
-    time hora_fin
-    varchar color }
-  VIGILANTE { int id PK
-    varchar documento UK
-    varchar nombre
-    varchar telefono
-    boolean es_supervisor
-    boolean activo }
-  PROGRAMACION { int id PK
-    int vigilante_id FK
-    int tipo_turno_id FK
-    date fecha }
-  NOVEDAD { int id PK
-    int vigilante_id FK
-    varchar tipo
-    date fecha_inicio
-    date fecha_fin
-    text descripcion
-    varchar estado_soporte }
-  DOCUMENTO { int id PK
-    int novedad_id FK
-    varchar s3_key UK
-    varchar nombre_original
-    varchar content_type
-    int tamano_bytes
-    timestamp created_at }
+  CLIENTS { uuid id PK
+    string code UK
+    string name
+    string nit UK
+    boolean is_active }
+  POSTS { uuid id PK
+    uuid client_id FK
+    string code UK
+    string name
+    boolean is_active }
+  SHIFT_CONFIGS { uuid id PK
+    uuid post_id FK
+    string code UK
+    string start_time
+    string end_time
+    boolean crosses_midnight
+    string color_hex }
+  GUARDS { uuid id PK
+    string id_number UK
+    string full_name
+    boolean is_supervisor
+    boolean is_active }
+  SCHEDULES { uuid id PK
+    uuid guard_id FK
+    uuid shift_config_id FK
+    date date
+    enum status }
+  RESTS { uuid id PK
+    uuid guard_id FK
+    date date_start
+    date date_end }
+  NOVELTY_TYPES { uuid id PK
+    string code UK
+    enum category
+    boolean support_required }
+  NOVELTIES { uuid id PK
+    uuid guard_id FK
+    uuid novelty_type_id FK
+    uuid post_id FK
+    datetime date_start
+    datetime date_end
+    boolean support_submitted }
+  SUPPORT_DOCUMENTS { uuid id PK
+    uuid novelty_id FK
+    string s3_key UK
+    string original_name
+    string content_type
+    int size_bytes
+    datetime created_at }
+  USERS { uuid id PK
+    string email UK
+    enum role }
 ```
 
-Notas:
-- Os nomes das tabelas seguem o código existente (espanhol).
-- `PROGRAMACION` resolve o N:N entre `VIGILANTE` e `TIPO_TURNO`. Restrição `UNIQUE (vigilante_id, tipo_turno_id, fecha)`.
-- `NOVEDAD.tipo` ∈ `DESCANSO, INCAPACIDAD, VACACIONES, LICENCIA, PERMISO, SUSPENSION`.
-- `NOVEDAD.estado_soporte` ∈ `NO_REQUIERE, PENDIENTE, ENTREGADO`.
-- `CHECK (fecha_fin >= fecha_inicio)` em `NOVEDAD`.
-- Scripts versionados em `database/` (ver ADR-07).
+**Relações que atendem o RF-01:**
+- `clients` 1:N `posts` 1:N `shift_configs` (cadastros encadeados).
+- `guards` N:N `shift_configs`, resolvida por `schedules` (vigilante × turno × data), com `UNIQUE (guard_id, date, shift_config_id)`.
+
+**Única mudança no schema (🆕):** o modelo `SupportDocument` (tabela `support_documents`), gerado como nova migration:
+
+```prisma
+model SupportDocument {
+  id            String   @id @default(uuid())
+  novelty_id    String
+  s3_key        String   @unique
+  original_name String
+  content_type  String
+  size_bytes    Int
+  created_at    DateTime @default(now())
+
+  novelty Novelty @relation(fields: [novelty_id], references: [id])
+
+  @@map("support_documents")
+}
+// e em Novelty: support_documents SupportDocument[]
+```
+
+**Suporte pendente** = `novelty_types.support_required = true` **e** `novelties.support_submitted = false`.
 
 ## 4. Rotas da API
 
-Base: `https://{api-id}.execute-api.us-east-1.amazonaws.com`
+Base: `https://{api-id}.execute-api.us-east-1.amazonaws.com`. Todas exigem `Authorization: Bearer <JWT>`, exceto o login.
 
-### 4.1 CRUD — NestJS na EC2 (prefixo `/api`)
+### 4.1 Rotas existentes ✅ (NestJS na EC2)
 
-| Método | Rota | Descrição | HU |
+| Recurso | Rotas | Papéis | HU |
 |---|---|---|---|
-| GET | `/api/health` | Verifica API e conexão com o banco | — |
-| GET · POST | `/api/clientes` | Listar (`?activo=true`) · criar | HU-01 |
-| GET · PUT · DELETE | `/api/clientes/{id}` | Detalhar · editar · inativar | HU-01 |
-| GET · POST | `/api/clientes/{id}/puestos` | Postos do cliente · criar posto | HU-01 |
-| PUT · DELETE | `/api/puestos/{id}` | Editar · inativar posto | HU-01 |
-| GET · POST | `/api/puestos/{id}/tipos-turno` | Turnos do posto · criar | HU-02 |
-| PUT · DELETE | `/api/tipos-turno/{id}` | Editar · excluir turno | HU-02 |
-| GET · POST | `/api/vigilantes` | Listar · criar | HU-03 |
-| GET · PUT · DELETE | `/api/vigilantes/{id}` | Detalhar · editar · inativar | HU-03 |
-| GET | `/api/programaciones?desde=&hasta=&clienteId=&vigilanteId=` | Grade do período | HU-04 |
-| POST | `/api/programaciones` | Atribuir turno (valida RN-01/RN-02 → 409) | HU-04 |
-| DELETE | `/api/programaciones/{id}` | Remover atribuição | HU-04 |
-| GET · POST | `/api/novedades?vigilanteId=&estadoSoporte=` | Listar/filtrar · criar | HU-05 |
-| PUT · DELETE | `/api/novedades/{id}` | Editar · excluir | HU-05 |
-| POST | `/api/novedades/{id}/upload-url` | Gera URL pré-assinada de `PUT` | HU-06 |
-| GET | `/api/novedades/{id}/documentos` | Documentos + URL pré-assinada de download | HU-06/07 |
+| Login | `POST /api/auth/login` | público | HU-09 |
+| Usuários | `GET·POST /api/users` · `GET·PATCH·DELETE /api/users/:id` | admin | — |
+| Clientes | `GET·POST /api/clients` · `GET·PATCH·DELETE /api/clients/:id` (DELETE inativa) | admin (escrita) | HU-01 |
+| Postos | `GET·POST /api/posts` · `GET·PATCH·DELETE /api/posts/:id` | admin (escrita) | HU-01 |
+| Tipos de turno | `GET·POST /api/shift-configs` · `GET·PATCH·DELETE /api/shift-configs/:id` | admin (escrita) | HU-02 |
+| Vigilantes | `GET·POST /api/security-guards` · `GET·PATCH /api/security-guards/:id` · `PATCH …/:id/terminate` · `PATCH …/:id/reactivate` · `GET …/without-schedule` | admin, coordinator | HU-03 |
+| Programação | `POST /api/schedules` · `POST /api/schedules/bulk` · `GET /api/schedules/calendar` · `GET /api/schedules/guard/:guardId/monthly` · `GET·PATCH·DELETE /api/schedules/:id` | admin, coordinator (viewer lê) | HU-04 |
+| Descansos | `GET·POST /api/rests` · `GET·PATCH·DELETE /api/rests/:id` | admin, coordinator | HU-05 |
+| Novidades | `GET /api/novelties/types` · `GET·POST /api/novelties` (filtro `support_pending`) · `GET·PATCH·DELETE /api/novelties/:id` | admin, coordinator | HU-06 |
+| Relatórios Excel | `GET /api/reports/{novelties,monthly,by-client,pending-guards,shift-crosses}` e `…/excel` | admin, coordinator | fora do RF-04 |
+| Swagger | `GET /api/docs` | público | — |
 
-Exemplo — `POST /api/novedades/45/upload-url`
+Exemplo — conflito em `POST /api/schedules` (já implementado):
+```json
+// 409 Conflict
+{ "statusCode": 409, "message": "Cruce de turnos: Pedro Gómez ya tiene el turno 214 (05:00–17:00) ese día" }
+```
+
+### 4.2 Rotas novas 🆕
+
+| Método | Rota | Onde | HU |
+|---|---|---|---|
+| POST | `/api/novelties/:id/upload-url` | NestJS (EC2) | HU-07 |
+| GET | `/api/novelties/:id/documents` | NestJS (EC2) | HU-07 / HU-08 |
+| GET | `/api/reports/hours-by-client?month=YYYY-MM` | **Lambda** `report-hours-by-client` | HU-09 |
+
+> No API Gateway HTTP API, uma rota exata tem prioridade sobre `ANY /api/{proxy+}`. Por isso `GET /api/reports/hours-by-client` vai para a Lambda e todo o resto de `/api/*` vai para a EC2, e o front continua usando uma única URL base.
+
+Exemplo — `POST /api/novelties/7c1e…/upload-url`
 ```json
 // request
-{ "fileName": "atestado.pdf", "contentType": "application/pdf", "size": 182340 }
-// response 200
-{ "uploadUrl": "https://…s3.amazonaws.com/soportes/novedad-45/3f2a-atestado.pdf?X-Amz-…",
-  "key": "soportes/novedad-45/3f2a-atestado.pdf", "expiresIn": 300 }
+{ "fileName": "incapacidad.pdf", "contentType": "application/pdf", "size": 182340 }
+// 201
+{ "uploadUrl": "https://cta-supports-xyz.s3.amazonaws.com/supports/novelty-7c1e…/3f2a-incapacidad.pdf?X-Amz-…",
+  "key": "supports/novelty-7c1e…/3f2a-incapacidad.pdf", "expiresIn": 300 }
 ```
 
-Exemplo — conflito em `POST /api/programaciones`
-```json
-// response 409
-{ "error": "CONFLITO_HORARIO", "message": "O vigilante 1023456789 já está no turno Diurno 06:00–18:00 em 2026-10-10" }
-```
-
-### 4.2 Relatório — Lambda (RF-04)
-
-| Método | Rota | Integração |
-|---|---|---|
-| GET | `/relatorios/programacion-por-cliente?mes=YYYY-MM` | Lambda `relatorio-programacion` |
+### 4.3 Consulta do relatório (RF-04)
 
 ```sql
-SELECT c.id AS cliente_id, c.nombre AS cliente, p.nombre AS puesto,
-       COUNT(pr.id) AS turnos,
-       ROUND(SUM(EXTRACT(EPOCH FROM
-         CASE WHEN t.hora_fin > t.hora_inicio THEN t.hora_fin - t.hora_inicio
-              ELSE t.hora_fin - t.hora_inicio + INTERVAL '24 hours' END)) / 3600, 1) AS horas
-FROM cliente c
-JOIN puesto p        ON p.cliente_id = c.id
-JOIN tipo_turno t    ON t.puesto_id = p.id
-JOIN programacion pr ON pr.tipo_turno_id = t.id
-WHERE pr.fecha >= $1::date AND pr.fecha < ($1::date + INTERVAL '1 month')
-GROUP BY c.id, c.nombre, p.id, p.nombre
-ORDER BY c.nombre, p.nombre;
+SELECT c.id   AS client_id,
+       c.name AS client,
+       p.code AS post_code,
+       p.name AS post,
+       COUNT(s.id) AS shifts,
+       ROUND(SUM(
+         EXTRACT(EPOCH FROM (sc.end_time::time - sc.start_time::time)) / 3600
+         + CASE WHEN sc.crosses_midnight THEN 24 ELSE 0 END
+       )::numeric, 1) AS hours
+FROM clients c
+JOIN posts         p  ON p.client_id        = c.id
+JOIN shift_configs sc ON sc.post_id         = p.id
+JOIN schedules     s  ON s.shift_config_id  = sc.id
+WHERE s.date >= $1::date
+  AND s.date <  ($1::date + INTERVAL '1 month')
+  AND s.status <> 'rest'
+GROUP BY c.id, c.name, p.id, p.code, p.name
+ORDER BY c.name, p.name;
 ```
-`$1` = primeiro dia do mês (ex.: `2026-10-01`). Consulta parametrizada (sem concatenar strings).
+`$1` = primeiro dia do mês (ex.: `2026-10-01`). Exemplo de cálculo: turno 17:00–05:00 → `05−17 = −12 h`, `+24` porque cruza a meia-noite = **12 h**.
 
-### 4.3 CORS
+### 4.4 CORS
 
-- API Gateway: `AllowOrigins` = URL do S3 website (em desenvolvimento, também `http://localhost:4200`); métodos `GET, POST, PUT, DELETE, OPTIONS`; header `Content-Type`.
-- Bucket de uploads: `AllowedMethods: PUT, GET`, `AllowedOrigins` = URL do S3 website, `AllowedHeaders: *`.
+- **API Gateway:** `AllowOrigins` = URL do S3 website (e `http://localhost:4200` em desenvolvimento); métodos `GET, POST, PATCH, DELETE, OPTIONS`; headers `Content-Type, Authorization`.
+- **NestJS:** já usa `FRONTEND_URL` em `enableCors` → definir com a URL do S3 website no `.env` da EC2.
+- **Bucket de suportes:** `AllowedMethods: PUT, GET`, `AllowedOrigins` = URL do S3 website, `AllowedHeaders: *`.
 
 ## 5. Recursos AWS
 
-| Recurso | Nome sugerido | Configuração |
+| Recurso | Nome | Configuração |
 |---|---|---|
-| VPC | `cta-vpc` | 10.0.0.0/16, Internet Gateway |
-| Subnet pública | `cta-public-a` | 10.0.1.0/24 (us-east-1a), auto-assign IP público |
-| Subnets privadas | `cta-private-a` / `cta-private-b` | 10.0.11.0/24 (1a) / 10.0.12.0/24 (1b) — o RDS exige 2 AZs |
+| VPC | `cta-vpc` | 10.0.0.0/16 + Internet Gateway |
+| Subnets públicas | `cta-subnet-public1/2` | 10.0.0.0/20 (1a) e 10.0.16.0/20 (1b), criadas pelo assistente "VPC and more"; a EC2 usa a 1 |
+| Subnets privadas | `cta-subnet-private1/2` | 10.0.128.0/20 (1a) e 10.0.144.0/20 (1b); o RDS exige 2 AZs |
 | Route tables | `cta-rt-public` / `cta-rt-private` | pública → IGW; privada → só local + endpoint S3 |
 | VPC Endpoint | `cta-s3-endpoint` | Gateway, S3, associado a `cta-rt-private` |
-| RDS | `cta-db` | PostgreSQL 16, db.t3.micro, 20 GB gp3, sem acesso público, subnet group privado |
+| RDS | `cta-db` | PostgreSQL 16, db.t3.micro, 20 GB gp3, sem acesso público |
 | EC2 | `cta-api` | t3.micro, Amazon Linux 2023, Docker, `LabInstanceProfile` |
-| S3 website | `cta-front-{sufixo}` | Static website hosting, leitura pública |
-| S3 uploads | `cta-uploads-{sufixo}` | Privado, CORS, evento → `procesa-soporte` (prefixo `soportes/`) |
-| Lambda | `procesa-soporte` | Node.js 20, `LabRole`, VPC privada, SG `sg-lambda` |
-| Lambda | `relatorio-programacion` | Node.js 20, `LabRole`, VPC privada, SG `sg-lambda` |
-| API Gateway | `cta-api-gw` | HTTP API, rotas §4, CORS |
+| S3 website | `cta-front-*` | Static website hosting, leitura pública (landing na Aula 2, Angular na Aula 4) |
+| S3 suportes | `cta-supports-*` | Privado, CORS, evento `s3:ObjectCreated:*` prefixo `supports/` → `process-support` |
+| Lambda | `process-support` | Node.js 20, `LabRole`, VPC privada, `sg-lambda` |
+| Lambda | `report-hours-by-client` | Node.js 20, `LabRole`, VPC privada, `sg-lambda` |
+| API Gateway | `cta-api-gw` | HTTP API, rotas §4, CORS §4.4 |
 
 ## 6. Security Groups
 
 | SG | Entrada | Saída | Por quê |
 |---|---|---|---|
-| `sg-ec2-api` | TCP 3000 de 0.0.0.0/0 · TCP 22 do IP do integrante | Tudo | O API Gateway HTTP API chama a EC2 pela internet (VPC Link exigiria NLB/ALB pagos). SSH só para deploy. |
+| `sg-ec2-api` | TCP 3000 de 0.0.0.0/0 · TCP 22 da prefix list `com.amazonaws.us-east-1.ec2-instance-connect` | Tudo | O API Gateway HTTP API chega à EC2 pela internet (VPC Link exigiria NLB/ALB, que são pagos). SSH só pelo EC2 Instance Connect do console, para o deploy. |
 | `sg-lambda` | Nenhuma | TCP 5432 → `sg-rds` · TCP 443 → prefix list do S3 | A Lambda só inicia conexões. |
-| `sg-rds` | TCP 5432 **de `sg-ec2-api` e `sg-lambda`** | — | RNF-01: ninguém da internet chega ao banco. |
+| `sg-rds` | TCP 5432 **somente de `sg-ec2-api` e `sg-lambda`** | — | RNF-01: nada da internet chega ao banco. |
 
-Para administrar o banco (rodar scripts SQL), conectamos via `psql` **a partir da EC2**.
+Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP público).
 
 ## 7. ADRs
 
-### ADR-01 — CRUD em container (EC2 + Docker) e não em Lambda · **RNF-04**
-- **Contexto:** o backend já existe em NestJS + Prisma, com cerca de 20 rotas de CRUD e validação de conflitos.
-- **Decisão:** rodar o NestJS como container Docker numa EC2 t3.micro. Lambda só para RF-03 (evento) e RF-04 (relatório).
-- **Por quê:** reaproveita o código sem reescrever cada rota como função; o Prisma em Lambda aumenta o pacote e o cold start e abre muitas conexões no RDS; um único deploy (`docker run`) é mais simples de demonstrar.
-- **Consequências:** a EC2 precisa estar ligada (custo baixo em t3.micro). O DNS público muda a cada sessão → atualizamos a integração do API Gateway (passo do README). Sem auto scaling (aceitável para o volume da empresa).
+### ADR-01 — CRUD em container (EC2 + Docker), não em Lambda · **RNF-04**
+- **Contexto:** o backend já existe: 10 módulos NestJS, cerca de 50 rotas, JWT com papéis e validação de cruces de turno.
+- **Decisão:** empacotar o NestJS num container Docker e rodar numa EC2 t3.micro. Lambda só onde o enunciado exige (RF-03 e RF-04).
+- **Por quê:** reaproveita 100% do código; reescrever cerca de 50 rotas como funções seria trabalho em dobro. O Prisma em Lambda aumenta o pacote e o cold start e abre uma conexão ao RDS por instância.
+- **Consequências:** a EC2 precisa estar ligada (custo baixo em t3.micro). O IP público muda a cada sessão → atualizar a integração do API Gateway (passo do README). Sem auto scaling, o que é aceitável para o volume da empresa.
 
 ### ADR-02 — API Gateway como única porta de entrada
-- **Decisão:** HTTP API com proxy `/api/{proxy+}` para a EC2 e rota `/relatorios/...` para a Lambda.
-- **Por quê:** o front conhece **uma** URL que não muda entre sessões; CORS configurado num só lugar; atende RF-04, que exige API Gateway.
+- **Decisão:** HTTP API com `ANY /api/{proxy+}` → EC2 e `GET /api/reports/hours-by-client` → Lambda.
+- **Por quê:** o front conhece uma única URL estável entre sessões; CORS num só lugar; atende o RF-04, que exige API Gateway.
 
 ### ADR-03 — Lambdas com `pg` puro, sem Prisma
-- **Decisão:** as duas Lambdas usam o driver `pg` com SQL parametrizado.
-- **Por quê:** pacote pequeno, cold start rápido, e o SQL com `JOIN/GROUP BY` fica explícito (o RF-04 pede isso e o professor pode perguntar).
+- **Decisão:** as duas Lambdas usam o driver `pg` (já é dependência do backend) com SQL parametrizado.
+- **Por quê:** pacote pequeno, cold start rápido, e o `JOIN/GROUP BY` fica explícito no código, como pede o RF-04.
 
-### ADR-04 — Descanso é um tipo de Novidade
-- **Decisão:** não criar a tabela `descanso`; usar `novedad.tipo = 'DESCANSO'`.
-- **Por quê:** uma tabela, uma tela e uma consulta para a regra RN-01. Menos código, mesmo comportamento.
+### ADR-04 — Manter `rests` e `novelties` separados
+- **Contexto:** a v0.2 da spec propunha unificar o descanso como tipo de novidade.
+- **Decisão:** manter como está no código: `rests` (planejamento futuro) e `novelties` (eventos que afetam a folha).
+- **Por quê:** a validação `isOnRest` e as telas já existem; unificar agora seria retrabalho sem ganho para os requisitos.
 
-### ADR-05 — RF-03 = registrar suporte (e não miniatura ou importação de CSV)
-- **Alternativas:** miniatura de imagem (exige `sharp`, binário nativo); importação de CSV da planilha (validação complexa).
-- **Decisão:** a Lambda grava os metadados em `documento` e marca a novidade como `ENTREGADO`.
-- **Por quê:** resolve uma dor real do RH, usa a mesma entidade do RF-02 (um único fluxo de upload) e é simples de testar.
+### ADR-05 — RF-03 = registrar o suporte da novidade
+- **Alternativas:** miniatura de imagem (exige `sharp`, binário nativo na Lambda); importar CSV da planilha (validação complexa).
+- **Decisão:** a Lambda grava os metadados em `support_documents` e marca `support_submitted = true`.
+- **Por quê:** o campo `support_submitted` e o filtro `support_pending` **já existem**; a Lambda só automatiza o que hoje é manual.
 
-### ADR-06 — Configuração do front em tempo de execução
-- **Decisão:** o Angular lê `assets/config.json` (`{ "apiUrl": "..." }`) ao iniciar.
-- **Por quê:** RNF-03 — trocar a URL não exige recompilar; nenhum IP no código.
+### ADR-06 — URL da API no build de produção
+- **Decisão:** `environment.prod.ts` → `apiUrl: 'https://{api-id}.execute-api.us-east-1.amazonaws.com/api'`.
+- **Por quê:** a URL do API Gateway não muda entre sessões do Learner Lab; quem muda é o IP da EC2, que fica escondido atrás do API Gateway. Atende o RNF-03 sem IP fixo e sem mudar a lógica do front.
 
 ### ADR-07 — Schema versionado com migrations do Prisma
-- **Decisão:** as migrations do Prisma (`prisma/migrations/*/migration.sql`) são os scripts SQL versionados; o `database/seed.sql` tem dados de exemplo. Aplicamos com `npx prisma migrate deploy` a partir do container na EC2.
-- **Por quê:** evita manter o schema em dois lugares (Prisma e SQL manual).
+- **Decisão:** `backend/prisma/migrations/*/migration.sql` são os scripts SQL versionados (já existe `20260618013948_init`). Aplicar com `npx prisma migrate deploy` e popular com `npx prisma db seed` a partir da EC2.
+- **Por quê:** evita manter o schema em dois lugares.
 
-### ADR-08 — Segredos
-- **Decisão:** `DATABASE_URL` em `.env` na EC2 (no `.gitignore`) e variáveis de ambiente nas Lambdas. **Bônus opcional:** mover para o Parameter Store (SecureString).
-- **Por quê:** RNF-02, sem depender de criar roles IAM.
+### ADR-10 — Conexão SSL com o RDS
+- **Contexto:** o RDS PostgreSQL 16 exige SSL (`rds.force_ssl = 1`). O driver `pg` valida o certificado e rejeita o da AWS, que não está na lista de confiança do Node.
+- **Decisão:** variável `DATABASE_SSL=true` → o `Pool` usa `ssl: { rejectUnauthorized: false }`. O Prisma CLI (migrations) usa `sslmode=prefer` por padrão e conecta sem mudanças.
+- **Por quê:** o tráfego continua criptografado e fica só dentro da VPC privada; não é preciso distribuir o bundle de certificados do RDS.
+
+### ADR-08 — Segredos fora do repositório
+- **Decisão:** `DATABASE_URL`, `DATABASE_SSL`, `JWT_SECRET`, `FRONTEND_URL` e `SEED_PASSWORD` em `.env` na EC2 (ignorado pelo Git e pelo Docker) e em variáveis de ambiente das Lambdas. O `docker-compose.yml` e o `seed.ts` deixaram de ter senhas escritas; `backend/.env.example` documenta as variáveis sem valores.
+- **Por quê:** RNF-02. **Bônus opcional:** mover os segredos para o Parameter Store (SecureString).
+
+### ADR-09 — Autenticação no relatório em Lambda
+- **Decisão:** a Lambda `report-hours-by-client` valida o mesmo JWT do NestJS (biblioteca `jsonwebtoken` + `JWT_SECRET` em variável de ambiente) e aceita os papéis `admin` e `coordinator`.
+- **Por quê:** o relatório expõe dados de faturamento; reutilizar o token evita um segundo login.

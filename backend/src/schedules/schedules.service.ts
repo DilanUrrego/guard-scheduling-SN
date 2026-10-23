@@ -199,32 +199,45 @@ export class SchedulesService {
         `${guard.full_name} tiene un descanso programado para el ${date.toLocaleDateString('es-CO')}`,
       );
 
-    // 4. Cruce de turnos: busca asignaciones del mismo vigilante en la misma fecha
-    const sameDay = await this.prisma.schedule.findMany({
+    // 4. Cruce de turnos (RN-02 y RN-03): busca asignaciones del mismo vigilante
+    //    el día anterior, el mismo día y el día siguiente, porque un turno que
+    //    cruza la medianoche (ej. 17:00–05:00) invade el día siguiente.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const nearby = await this.prisma.schedule.findMany({
       where: {
         guard_id: guardId,
-        date,
+        date: {
+          gte: new Date(date.getTime() - DAY_MS),
+          lte: new Date(date.getTime() + DAY_MS),
+        },
         ...(excludeScheduleId && { id: { not: excludeScheduleId } }),
       },
       include: { shift_config: true },
     });
 
-    // Compara rangos en minutos para detectar solapamiento
+    // Rango del turno nuevo en minutos, contado desde las 00:00 de `date`
     const { start: newStart, end: newEnd } = ShiftConfigsService.shiftRangeMinutes(
       shift.start_time, shift.end_time, shift.crosses_midnight,
     );
 
-    for (const existing of sameDay) {
-      const { start: exStart, end: exEnd } = ShiftConfigsService.shiftRangeMinutes(
+    for (const existing of nearby) {
+      // -1 = día anterior, 0 = mismo día, +1 = día siguiente
+      const dayOffset = Math.round((existing.date.getTime() - date.getTime()) / DAY_MS);
+      const range = ShiftConfigsService.shiftRangeMinutes(
         existing.shift_config.start_time,
         existing.shift_config.end_time,
         existing.shift_config.crosses_midnight,
       );
+      // Llevamos el turno existente a la misma línea de tiempo que el nuevo
+      const exStart = range.start + dayOffset * 1440;
+      const exEnd   = range.end   + dayOffset * 1440;
+
       const overlaps = newStart < exEnd && newEnd > exStart;
       if (overlaps)
         throw new ConflictException(
           `Cruce de turnos: ${guard.full_name} ya tiene el turno ${existing.shift_config.code} ` +
-          `(${existing.shift_config.start_time}–${existing.shift_config.end_time}) ese día`,
+          `(${existing.shift_config.start_time}–${existing.shift_config.end_time}) ` +
+          `el ${existing.date.toISOString().slice(0, 10)}`,
         );
     }
   }

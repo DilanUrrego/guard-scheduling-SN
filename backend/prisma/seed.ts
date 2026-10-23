@@ -3,10 +3,19 @@ import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+});
 const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
+
+// RNF-02: la contraseña inicial de los usuarios de ejemplo viene del entorno, no del código.
+const SEED_PASSWORD = process.env.SEED_PASSWORD;
+if (!SEED_PASSWORD) {
+  throw new Error('Defina la variable SEED_PASSWORD antes de ejecutar el seed');
+}
 
 // ── Helpers ───────────────────────────────────
 const date = (y: number, m: number, d: number) => new Date(y, m - 1, d);
@@ -47,10 +56,10 @@ async function main() {
 
   // ── 2. USUARIOS ───────────────────────────────
   const usersData = [
-    { id_number: '000000001', name: 'Administrador Sistema', email: 'admin@claveseguridad.com',       password: 'Admin1234!',  role: 'admin'       },
-    { id_number: '000000002', name: 'Carlos Mejía Ríos',     email: 'carlos@claveseguridad.com',      password: 'Coord1234!',  role: 'coordinator' },
-    { id_number: '000000003', name: 'Diana Vargas López',    email: 'diana@claveseguridad.com',       password: 'Coord1234!',  role: 'coordinator' },
-    { id_number: '000000004', name: 'Laura Gómez Pérez',     email: 'laura@claveseguridad.com',       password: 'Viewer123!',  role: 'viewer'      },
+    { id_number: '000000001', name: 'Administrador Sistema', email: 'admin@claveseguridad.com',       password: SEED_PASSWORD,  role: 'admin'       },
+    { id_number: '000000002', name: 'Carlos Mejía Ríos',     email: 'carlos@claveseguridad.com',      password: SEED_PASSWORD,  role: 'coordinator' },
+    { id_number: '000000003', name: 'Diana Vargas López',    email: 'diana@claveseguridad.com',       password: SEED_PASSWORD,  role: 'coordinator' },
+    { id_number: '000000004', name: 'Laura Gómez Pérez',     email: 'laura@claveseguridad.com',       password: SEED_PASSWORD,  role: 'viewer'      },
   ];
 
   const userMap: Record<string, string> = {};

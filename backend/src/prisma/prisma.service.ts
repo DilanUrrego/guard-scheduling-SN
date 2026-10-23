@@ -9,8 +9,11 @@ export class PrismaService extends PrismaClient
 
     constructor() {
     // 1. Configura el pool de conexiones de pg
+    // En AWS el RDS exige SSL (DATABASE_SSL=true). El certificado del RDS no
+    // está en la lista de confianza de Node, por eso no se valida.
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     });
 
     // 2. Inicializa el adaptador de Prisma para PostgreSQL
