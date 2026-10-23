@@ -159,21 +159,22 @@ Agora vamos fazer a entrega da Aula 3. Como você recomenda fazer: Swagger ou An
 | 1 | AWS recusou o nome `sg-ec2-api` | `sg-` é reservado para IDs | Padrão `cta-<camada>-sg` | **Eu** (corrigi a proposta da IA) |
 | 2 | Sem `vockey` nem `LabInstanceProfile` | Estava numa conta AWS com créditos, não no Learner Lab | Seguir nessa conta respeitando as restrições do lab; migrar na Aula 4 (ADR-12) | IA levantou a hipótese, eu confirmei |
 | 3 | `docker: command not found` | O *user data* foi colado com espaços antes de `#!/bin/bash` e não executou | Instalação manual; README corrigido | IA, pelo log do cloud-init |
-| 4 | `P1001 Can't reach database server` | Rede entre EC2 e RDS — *[confirmar: SG da EC2 diferente de `cta-api-sg` / regra do `cta-rds-sg`]* | *[confirmar o que alterei]* | Eu, seguindo o checklist da IA |
+| 4 | `P1001 Can't reach database server` | A regra de entrada do `cta-rds-sg` não liberava a porta 5432 para o `cta-api-sg` | Corrigi a regra inbound do `cta-rds-sg` (PostgreSQL 5432, origem `cta-api-sg`) | Eu, seguindo o checklist da IA |
 | 5 | `P1000 Authentication failed` | Usuário `cta-admin` (com hífen) no `.env`; o RDS não aceita hífen no usuário | Usar o *Master username* exato | IA |
-| 6 | `503 Service Unavailable` no API Gateway | API Gateway não alcançava a EC2 — *[confirmar: URL da integração / porta 3000]* | *[confirmar o que alterei]* | Eu, seguindo o checklist da IA |
+| 6 | `503 Service Unavailable` no API Gateway | Erro de digitação na URL da integração, então o API Gateway não alcançava a EC2 | Corrigi a URL para `http://<DNS-PÚBLICO>:3000/api/{proxy}` | Eu, seguindo o checklist da IA |
 | 7 | Build do Angular falhava ao importar estilos | 3 componentes com um `../` a mais no `@use` | Estilos em `.scss` + `includePaths` (ADR-11) | Eu propus separar os estilos; a IA acrescentou o `includePaths` |
 | 8 | Formulários de turnos e postos sem botões de dias/mensagens | `*ngIf`/`*ngFor` sem `CommonModule` | Importar `CommonModule` | IA, pelos warnings do build |
-| 9 | Login mostrava "credenciais inválidas" | Na verdade era **CORS** no preflight; o front mostra a mesma mensagem para qualquer erro | Configurar o CORS do API Gateway — *[confirmar a opção usada]* | IA, pelo console do navegador |
+| 9 | Login mostrava "credenciais inválidas" | Na verdade era **CORS** no preflight (o front mostra a mesma mensagem para qualquer erro), somado a um pequeno erro na URL | Corrigi a configuração de CORS do API Gateway e a URL | IA identificou o CORS pelo console do navegador; eu achei e corrigi o erro na URL |
 | 10 | `npm ci` falhava com o lock do GitHub | `package-lock.json` versionado desatualizado | Versionar o lock local | IA |
 
 **O que aceitei, corrigi ou rejeitei:**
 - ✅ Aceito: separar estilos em `.scss` + `includePaths`, `CommonModule`, diagnóstico de CORS.
-- ✏️ Corrigido por mim: nomes dos Security Groups; *user data* colado sem espaços.
+- ✏️ Corrigido por mim: nomes dos Security Groups; *user data* colado sem espaços; regra do `cta-rds-sg`; erros de digitação nas URLs da integração e do CORS.
 - ❌ Rejeitado: criar um role IAM próprio na conta com créditos — não seria possível no Learner Lab.
 
 **Aprendizados:**
 - Ler a mensagem exata do erro muda tudo: P1001 é **rede**, P1000 é **credencial**, 503 é **integração**.
+- Dois dos erros (503 e CORS) foram de digitação em URLs: copiar e colar valores do console é mais seguro do que digitá-los.
 - Testar por camadas (EC2 direto na porta 3000 → API Gateway → navegador) mostra em qual trecho está o problema.
 - Uma mensagem de erro do front pode enganar ("credenciais inválidas"); o console do navegador mostra a causa real.
 - A IA propôs nomes inválidos e um *user data* frágil; eu preciso validar tudo no console antes de aceitar.
