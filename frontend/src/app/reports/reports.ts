@@ -46,6 +46,9 @@ export class ReportsComponent implements OnInit {
   noveltyResults    = signal<any[]>([]);
   pendingResults    = signal<any[]>([]);
   crossResults      = signal<any[]>([]);
+  hoursResults      = signal<any[]>([]);
+  hoursSearched     = signal(false);
+  hoursError        = signal('');
 
   months = [
     { v:1, l:'Enero' }, { v:2, l:'Febrero' }, { v:3, l:'Marzo' },
@@ -132,6 +135,23 @@ export class ReportsComponent implements OnInit {
         error: () => this.loading.set(''),
       });
   }
+
+  // ── RF-04: Horas por cliente (Lambda) ─────────
+  loadHoursByClient() {
+    const month = `${this.year}-${String(this.month).padStart(2, '0')}`;
+    this.loading.set('hours');
+    this.hoursError.set('');
+    this.reportService.getHoursByClient(month).subscribe({
+      next: d => { this.hoursResults.set(d); this.hoursSearched.set(true); this.loading.set(''); },
+      error: e => {
+        this.hoursError.set(e?.error?.message ?? 'No se pudo generar el informe');
+        this.loading.set('');
+      },
+    });
+  }
+
+  hoursTotal()  { return this.hoursResults().reduce((t, r) => t + r.hours, 0); }
+  shiftsTotal() { return this.hoursResults().reduce((t, r) => t + r.shifts, 0); }
 
   isLoading(key: string) { return this.loading() === key; }
   anyLoading()           { return this.loading() !== ''; }

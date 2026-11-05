@@ -41,6 +41,12 @@ export class ReportService extends ApiService {
       { params: this.buildParams({ year, month }) });
   }
 
+  /** RF-04: informe servido por la Lambda report-hours-by-client vía API Gateway. */
+  getHoursByClient(month: string) {
+    return this.http.get<any[]>(`${this.base}/reports/hours-by-client`,
+      { params: this.buildParams({ month }) });
+  }
+
   // Utilidad: descarga un blob como archivo
   downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);

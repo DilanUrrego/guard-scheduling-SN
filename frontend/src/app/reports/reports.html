@@ -29,6 +29,63 @@
 
   <mat-tab-group animationDuration="200ms" class="reports-tabs">
 
+    <!-- ── TAB 0: Horas por cliente (RF-04, Lambda + API Gateway) ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">schedule</mat-icon>
+        Horas por cliente
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="report-card">
+          <div class="report-card__header">
+            <div class="report-card__info">
+              <h3>Horas programadas por cliente</h3>
+              <p>Turnos y horas por cliente y puesto en el mes seleccionado arriba (base para facturar).</p>
+            </div>
+            <mat-icon class="report-card__icon">payments</mat-icon>
+          </div>
+          <div class="report-card__actions">
+            <button class="btn btn--primary" (click)="loadHoursByClient()" [disabled]="anyLoading()">
+              <mat-spinner *ngIf="isLoading('hours')" diameter="18" />
+              <mat-icon *ngIf="!isLoading('hours')">search</mat-icon>
+              Generar informe
+            </button>
+          </div>
+
+          <p class="results-count results-count--warn" *ngIf="hoursError()">
+            <mat-icon>error_outline</mat-icon> {{ hoursError() }}
+          </p>
+
+          <div class="preview-table" *ngIf="hoursResults().length > 0">
+            <table class="data-table">
+              <thead>
+                <tr><th>Cliente</th><th>Puesto</th><th>Turnos</th><th>Horas</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of hoursResults()">
+                  <td><strong>{{ r.client }}</strong></td>
+                  <td>{{ r.post_code }} · {{ r.post }}</td>
+                  <td>{{ r.shifts }}</td>
+                  <td>{{ r.hours | number:'1.0-1' }} h</td>
+                </tr>
+                <tr>
+                  <td colspan="2"><strong>Total</strong></td>
+                  <td><strong>{{ shiftsTotal() }}</strong></td>
+                  <td><strong>{{ hoursTotal() | number:'1.0-1' }} h</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="hoursSearched() && hoursResults().length === 0 && !hoursError()">
+            <mat-icon>event_busy</mat-icon>
+            <h3>Sin programación en este mes</h3>
+            <p>Elige otro mes en el selector de arriba.</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
     <!-- ── TAB 1: Novedades ── -->
     <mat-tab>
       <ng-template mat-tab-label>

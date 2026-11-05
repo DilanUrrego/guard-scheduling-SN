@@ -205,8 +205,30 @@ model Novelty {
   post         Post         @relation(fields: [post_id], references: [id])
   schedule     Schedule?    @relation(fields: [schedule_id], references: [id])
   registered_by User        @relation("NoveltyCreatedBy", fields: [registered_by_id], references: [id])
+  support_documents SupportDocument[]
 
   @@map("novelties")
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTOS DE SOPORTE (RF-02 / RF-03)
+// El archivo vive en S3; la Lambda process-support crea este registro
+// cuando el archivo llega al bucket.
+// ─────────────────────────────────────────────
+
+model SupportDocument {
+  id            String   @id @default(uuid())
+  novelty_id    String
+  s3_key        String   @unique
+  original_name String
+  content_type  String
+  size_bytes    Int
+  created_at    DateTime @default(now())
+
+  novelty Novelty @relation(fields: [novelty_id], references: [id], onDelete: Cascade)
+
+  @@index([novelty_id])
+  @@map("support_documents")
 }
 
 // ─────────────────────────────────────────────

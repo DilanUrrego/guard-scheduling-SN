@@ -21,7 +21,8 @@ Sistema web para programar turnos de vigilantes de uma empresa de segurança pri
 | Landing page (S3) | `landing/index.html` | Aula 2 |
 | Backend (NestJS + Prisma) | `backend/` | Docker na EC2 |
 | Scripts SQL versionados | `backend/prisma/migrations/*/migration.sql` | Aula 3 |
-| Front-end (Angular) | `frontend/` | publicação na Aula 4 |
+| Front-end (Angular) | `frontend/` | S3 static website (Aula 4) |
+| Lambdas (RF-03, RF-04) | `lambdas/` | Aula 4 |
 | Evidências | `docs/evidencias/` | entrega final |
 
 ---
@@ -109,6 +110,8 @@ JWT_SECRET=<saída de: openssl rand -hex 32>
 FRONTEND_URL=http://localhost:4200
 PORT=3000
 SEED_PASSWORD=<senha inicial dos usuários de exemplo>
+SUPPORTS_BUCKET=<nome do bucket de suportes (Aula 4)>
+AWS_REGION=us-east-1
 ```
 
 Erros comuns ao conectar no banco:
@@ -121,7 +124,7 @@ Construa a imagem, crie as tabelas e suba a API:
 docker build -t cta-api .                                           # ~5 min na t3.micro
 docker run --rm --env-file .env cta-api npx prisma migrate deploy   # aplica os scripts SQL versionados
 docker run --rm --env-file .env cta-api npx prisma db seed          # dados de exemplo
-docker run -d --name cta-api --restart unless-stopped --env-file .env -p 3000:3000 cta-api
+docker run -d --name cta-api --restart unless-stopped --network host --env-file .env cta-api
 docker logs cta-api                                                 # deve mostrar "Backend corriendo"
 curl http://localhost:3000/api                                      # deve responder
 ```
@@ -160,6 +163,98 @@ apiUrl: 'https://<id>.execute-api.us-east-1.amazonaws.com/api',
 cd frontend && npm install && npx ng serve
 ```
 Abra `http://localhost:4200` e entre com `admin@claveseguridad.com` e a `SEED_PASSWORD`.
+
+---
+
+## Aula 4 — Upload (RF-02), Lambdas (RF-03 e RF-04) e front publicado (RF-05)
+
+Pré-requisito: a infraestrutura da Aula 3 rodando.
+
+### 8. Bucket privado de suportes
+
+1. **S3 → Create bucket**: nome `cta-supports-<sufixo>` (ex.: `cta-supports-durrego`), região us-east-1, **Block all public access: ligado**.
+2. Bucket → **Permissions → CORS → Edit** (troque a URL do site pela do seu bucket do front):
+   ```json
+   [
+     {
+       "AllowedHeaders": ["*"],
+       "AllowedMethods": ["PUT", "GET"],
+       "AllowedOrigins": ["http://localhost:4200", "http://cta-front-<sufixo>.s3-website-us-east-1.amazonaws.com"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3000
+     }
+   ]
+   ```
+
+### 9. Permissões (roles)
+
+- **Learner Lab:** use os existentes: `LabInstanceProfile` na EC2 e `LabRole` nas Lambdas. Pule para o passo 10.
+- **Conta própria (ADR-12):** crie equivalentes com o mesmo nome:
+  1. **IAM → Roles → Create role** → *AWS service* → **EC2** → sem políticas → nome `LabInstanceProfile`. Depois, na role: **Add permissions → Create inline policy → JSON**:
+     ```json
+     { "Version": "2012-10-17",
+       "Statement": [{ "Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject"],
+                       "Resource": "arn:aws:s3:::cta-supports-<sufixo>/*" }] }
+     ```
+  2. **IAM → Roles → Create role** → *AWS service* → **Lambda** → política **`AWSLambdaVPCAccessExecutionRole`** → nome `LabRole`.
+- Associe o perfil à EC2: **EC2 → `cta-api` → Actions → Security → Modify IAM role → `LabInstanceProfile`**.
+
+### 10. Backend com a URL pré-assinada (RF-02)
+
+No terminal da EC2:
+```bash
+cd ~/guard-scheduling-SN && git pull
+cd backend && nano .env            # acrescente SUPPORTS_BUCKET e AWS_REGION
+docker build -t cta-api .
+docker run --rm --env-file .env cta-api npx prisma migrate deploy   # cria support_documents
+docker rm -f cta-api
+docker run -d --name cta-api --restart unless-stopped --network host --env-file .env cta-api
+docker logs cta-api
+```
+`--network host` deixa o container ler as credenciais da role da EC2 (serviço de metadados) sem configuração extra.
+
+Teste no Swagger: `POST /api/novelties/{id}/upload-url` com `{"fileName":"a.pdf","contentType":"application/pdf","size":1000}` deve devolver `uploadUrl`.
+
+### 11. Lambda `process-support` (RF-03)
+
+1. **Lambda → Create function → Author from scratch**: nome `process-support`, runtime **Node.js 22.x**, execution role: **Use an existing role → `LabRole`**.
+2. *Additional configurations* → **Enable VPC**: `cta-vpc`, as **2 subnets privadas**, security group **`cta-lambda-sg`** → **Create function**.
+3. **Code → Upload from → .zip file** → `lambdas/process-support.zip` (gerado com `npm install` + zip; o arquivo não vai para o Git).
+4. **Configuration → General configuration**: timeout **15 s**.
+5. **Configuration → Environment variables**: `DATABASE_URL` (o mesmo do `.env` da EC2) e `DATABASE_SSL=true`.
+6. **Add trigger → S3**: bucket `cta-supports-<sufixo>`, *All object create events*, **Prefix `supports/`**, marque o aviso de invocação recursiva → **Add**.
+
+Teste: anexe um PDF a uma novidade no front; em **CloudWatch → Log groups → `/aws/lambda/process-support`** aparece `"Soporte registrado"` e a novidade passa a "Presentado".
+
+### 12. Lambda `report-hours-by-client` (RF-04)
+
+1. Crie a função como no passo 11 (nome `report-hours-by-client`, mesma VPC, subnets e SG) e suba `lambdas/report-hours-by-client.zip`.
+2. Timeout **15 s**. Variáveis: `DATABASE_URL`, `DATABASE_SSL=true` e, para exigir login, `JWT_SECRET` (o mesmo da EC2).
+3. **API Gateway → `cta-api-gw` → Routes → Create**: `GET` `/api/reports/hours-by-client` → **Attach integration → Create and attach → Lambda function → `report-hours-by-client`**.
+
+A rota exata tem prioridade sobre `ANY /api/{proxy+}`: só ela vai para a Lambda; o resto continua indo para a EC2.
+
+### 13. Front-end publicado no S3 (RF-05)
+
+1. Confira a Invoke URL em `frontend/src/environments/environment.prod.ts`.
+2. Build:
+   ```bash
+   cd frontend && npm ci && npx ng build
+   ```
+3. **S3 → `cta-front-<sufixo>` → Objects**: apague o conteúdo antigo e envie **o conteúdo** de `frontend/dist/frontend/browser/` (arquivos e pastas, não a pasta `browser`).
+4. **Properties → Static website hosting → Edit**: Index document `index.html` e **Error document `index.html`** (para as rotas do Angular).
+5. **API Gateway → CORS**: acrescente a origem `http://cta-front-<sufixo>.s3-website-us-east-1.amazonaws.com` (sem `/` no final).
+6. Abra o *Bucket website endpoint*, faça login e teste: anexar suporte, ver suporte e o informe "Horas por cliente".
+
+### Problemas comuns da Aula 4
+
+| Sintoma | Causa provável |
+|---|---|
+| `upload-url` responde 500 *Could not load credentials* | EC2 sem `LabInstanceProfile`, ou container rodando sem `--network host` |
+| Upload falha com erro de CORS no PUT | CORS do bucket de suportes sem a origem do front |
+| Upload ok, mas a novidade não muda | Trigger sem o prefixo `supports/`, ou a Lambda não alcança o RDS (veja o log no CloudWatch; confira `cta-rds-sg` ← `cta-lambda-sg`) |
+| Lambda termina por *timeout* | Timeout padrão de 3 s; use 15 s |
+| Informe responde 401 | `JWT_SECRET` da Lambda diferente do da EC2 |
 
 ---
 

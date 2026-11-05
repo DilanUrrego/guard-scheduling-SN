@@ -110,6 +110,21 @@
           </td>
           <td>{{ n.registered_by?.name ?? '—' }}</td>
           <td class="table-actions">
+            <!-- RF-02: subir soporte a S3 con URL pre-firmada -->
+            <input #supportInput type="file" hidden
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                   (change)="onSupportFile(n, $event)" />
+            <button mat-icon-button matTooltip="Adjuntar soporte (PDF, JPG o PNG)"
+                    *ngIf="n.novelty_type.support_required && auth.canEdit()"
+                    [disabled]="uploadingId() === n.id"
+                    (click)="supportInput.click()">
+              <mat-spinner *ngIf="uploadingId() === n.id" diameter="18" />
+              <mat-icon *ngIf="uploadingId() !== n.id">attach_file</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Ver soporte"
+                    *ngIf="n.support_submitted" (click)="viewSupport(n)">
+              <mat-icon>visibility</mat-icon>
+            </button>
             <button mat-icon-button matTooltip="Marcar soporte presentado"
                     *ngIf="n.novelty_type.support_required && !n.support_submitted && auth.canEdit()"
                     (click)="markSupportSubmitted(n)">

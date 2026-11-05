@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -36,6 +37,7 @@ export class NoveltiesListComponent implements OnInit {
   guards       = signal<any[]>([]);
   noveltyTypes = signal<any[]>([]);
   loading      = signal(false);
+  uploadingId  = signal<string>(''); // novedad cuyo soporte se está subiendo
 
   // Filtros
   filterGuardId      = '';
@@ -98,6 +100,43 @@ export class NoveltiesListComponent implements OnInit {
   markSupportSubmitted(novelty: any) {
     this.noveltyService.update(novelty.id, { support_submitted: true })
       .subscribe(() => this.load());
+  }
+
+  // ── RF-02 + RF-03: adjuntar soporte ────────────────────────────
+  readonly allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  readonly maxBytes = 5 * 1024 * 1024;
+
+  async onSupportFile(novelty: any, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    if (!this.allowedTypes.includes(file.type)) { alert('Solo se permiten archivos PDF, JPG o PNG'); return; }
+    if (file.size > this.maxBytes)              { alert('El archivo no puede superar 5 MB'); return; }
+
+    this.uploadingId.set(novelty.id);
+    try {
+      // 1. El backend genera la URL pre-firmada (válida 5 min)
+      const { uploadUrl } = await firstValueFrom(this.noveltyService.getUploadUrl(novelty.id, {
+        fileName: file.name, contentType: file.type, size: file.size,
+      }));
+      // 2. El navegador sube el archivo directo a S3
+      await this.noveltyService.uploadToS3(uploadUrl, file);
+      // 3. S3 dispara la Lambda, que marca el soporte en el RDS; recargamos en unos segundos
+      setTimeout(() => { this.uploadingId.set(''); this.load(); }, 4000);
+    } catch (e: any) {
+      this.uploadingId.set('');
+      alert('No se pudo subir el soporte: ' + (e?.error?.message ?? e?.message ?? e));
+    }
+  }
+
+  viewSupport(novelty: any) {
+    this.noveltyService.getDocuments(novelty.id).subscribe({
+      next: docs => docs.length
+        ? window.open(docs[0].downloadUrl, '_blank')
+        : alert('Esta novedad no tiene archivos adjuntos'),
+      error: () => alert('No se pudieron consultar los soportes'),
+    });
   }
 
   remove(novelty: any) {

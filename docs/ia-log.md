@@ -178,3 +178,32 @@ Agora vamos fazer a entrega da Aula 3. Como você recomenda fazer: Swagger ou An
 - Testar por camadas (EC2 direto na porta 3000 → API Gateway → navegador) mostra em qual trecho está o problema.
 - Uma mensagem de erro do front pode enganar ("credenciais inválidas"); o console do navegador mostra a causa real.
 - A IA propôs nomes inválidos e um *user data* frágil; eu preciso validar tudo no console antes de aceitar.
+
+---
+
+## Entrada 06 — Código da Aula 4 (upload, Lambdas, relatório e front publicado)
+
+- **Data:** 05/11/2026
+- **Ferramenta:** Claude (chat), com acesso ao repositório e à pasta local
+- **Contexto dado:** `spec/spec.md`, `spec/design.md`, `spec/tasks.md` (T-21 a T-31) e o código existente
+
+**Prompt (original em espanhol):**
+```
+Dá-me o passo a passo do que se deve fazer para a Aula 4.
+```
+
+**O que a IA gerou:**
+- Backend: modelo `SupportDocument` + migration `20261105090000_support_documents`; `SupportsService` com `POST /api/novelties/:id/upload-url` (URL pré-assinada de 5 min, só PDF/JPG/PNG até 5 MB) e `GET /api/novelties/:id/documents`.
+- `lambdas/process-support`: registra o suporte a partir do evento do S3, de forma idempotente.
+- `lambdas/report-hours-by-client`: relatório com `JOIN` + `GROUP BY` e JWT opcional.
+- Front: botões "Anexar suporte" e "Ver suporte", aba "Horas por cliente", `environment.prod.ts` com a URL do API Gateway e `fileReplacements` no `angular.json`.
+- README com os passos 8 a 13 (console da AWS).
+
+**Como foi validado antes do deploy:** as duas migrations e as duas Lambdas foram executadas contra um PostgreSQL 16 local: suporte válido, evento repetido, chave inválida, novidade inexistente, mês inválido e JWT com e sem token. O build de produção do Angular passou (446 kB iniciais).
+
+**Decisões:**
+- ✅ Simplificação: a Lambda de suportes **não chama o S3** (os metadados vêm do evento) → menos permissões e nenhum ponto de falha de rede (ADR-05).
+- ✅ JWT no relatório **opcional** via `JWT_SECRET` (ADR-09).
+- ✅ Container com `--network host` para ler as credenciais da role da EC2.
+- ✅ Na conta própria, roles criadas com os mesmos nomes do Learner Lab (`LabInstanceProfile`, `LabRole`).
+- *[preencher: o que eu mudei ou corrigi durante o deploy]*

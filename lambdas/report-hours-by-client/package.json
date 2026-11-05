@@ -1,0 +1,11 @@
+{
+  "name": "report-hours-by-client",
+  "version": "1.0.0",
+  "description": "RF-04: turnos y horas programadas por cliente y puesto en el mes",
+  "type": "module",
+  "main": "index.mjs",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.0"
+  }
+}

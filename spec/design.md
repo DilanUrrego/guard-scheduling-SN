@@ -1,6 +1,6 @@
 # Design — Clave Seguridad CTA · Programação de Turnos
 
-> **Versão 0.4** (Aula 3 · 23/10) — atualizada com o que está rodando na AWS — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
+> **Versão 0.5** (Aula 4) — inclui upload, Lambdas e front publicado — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
 > Legenda: ✅ já existe no código · 🆕 a implementar no Projeto 2.
 
 ## 1. Visão geral
@@ -11,8 +11,8 @@
 | API (CRUD, login, URL pré-assinada) | NestJS 11 + Prisma 7, prefixo global `/api`, JWT | **Docker numa EC2 t3.micro** | ✅ código · 🆕 Dockerfile e deploy |
 | Entrada da API | — | **API Gateway (HTTP API)** | 🆕 |
 | Banco | PostgreSQL 16 | **RDS db.t3.micro** em subnets privadas | ✅ schema · 🆕 RDS |
-| Processar suporte (RF-03) | Node.js 20 + `pg` | **Lambda `process-support`** | 🆕 |
-| Relatório (RF-04) | Node.js 20 + `pg` | **Lambda `report-hours-by-client`** | 🆕 |
+| Processar suporte (RF-03) | Node.js 22 + `pg` | **Lambda `process-support`** | 🆕 |
+| Relatório (RF-04) | Node.js 22 + `pg` + `jsonwebtoken` | **Lambda `report-hours-by-client`** | 🆕 |
 | Arquivos de suporte | — | **S3 privado `cta-supports-*`** | 🆕 |
 
 ## 2. Diagrama de arquitetura
@@ -40,7 +40,6 @@ flowchart LR
   E -->|SQL 5432| R
   E -->|gera URL pré-assinada| B
   B -->|evento ObjectCreated| L1
-  L1 -->|HeadObject| VE --> B
   L1 -->|INSERT / UPDATE| R
   L2 -->|SELECT JOIN GROUP BY| R
   L1 -.->|logs| CW[CloudWatch Logs]
@@ -51,7 +50,7 @@ flowchart LR
 1. O vigilante (ou o coordenador) abre uma novidade de incapacidade e escolhe `incapacidad.pdf`.
 2. O front chama `POST /api/novelties/{id}/upload-url` → a EC2 devolve uma URL pré-assinada para `supports/novelty-{id}/{uuid}-incapacidad.pdf`.
 3. O navegador faz `PUT` do arquivo direto no S3.
-4. O S3 dispara `process-support`, que lê o `ContentType` (HeadObject via endpoint), insere em `support_documents` e marca `novelties.support_submitted = true`.
+4. O S3 dispara `process-support`, que usa a chave e o tamanho que vêm no próprio evento (o tipo sai da extensão), insere em `support_documents` e marca `novelties.support_submitted = true`. A Lambda não precisa chamar o S3.
 5. A novidade some do filtro "suporte pendente" (`GET /api/novelties?support_pending=true`).
 
 ## 3. Modelo de dados
@@ -236,13 +235,13 @@ ORDER BY c.name, p.name;
 | Subnets públicas | `cta-subnet-public1/2` | 10.0.0.0/20 (1a) e 10.0.16.0/20 (1b), criadas pelo assistente "VPC and more"; a EC2 usa a 1 |
 | Subnets privadas | `cta-subnet-private1/2` | 10.0.128.0/20 (1a) e 10.0.144.0/20 (1b); o RDS exige 2 AZs |
 | Route tables | `cta-rt-public` / `cta-rt-private` | pública → IGW; privada → só local + endpoint S3 |
-| VPC Endpoint | `cta-s3-endpoint` | Gateway, S3, associado a `cta-rt-private` |
+| VPC Endpoint | `cta-s3-endpoint` | Gateway, S3, associado às route tables privadas (reservado; as Lambdas atuais não chamam o S3) |
 | RDS | `cta-db` | PostgreSQL 16, db.t3.micro, 20 GB gp3, sem acesso público |
 | EC2 | `cta-api` | t3.micro, Amazon Linux 2023, 16 GiB, Docker + 1 GB de swap, `LabInstanceProfile` (necessário a partir da Aula 4 para gerar URLs pré-assinadas) |
 | S3 website | `cta-front-*` | Static website hosting, leitura pública (landing na Aula 2, Angular na Aula 4) |
 | S3 suportes | `cta-supports-*` | Privado, CORS, evento `s3:ObjectCreated:*` prefixo `supports/` → `process-support` |
-| Lambda | `process-support` | Node.js 20, `LabRole`, VPC privada, `cta-lambda-sg` |
-| Lambda | `report-hours-by-client` | Node.js 20, `LabRole`, VPC privada, `cta-lambda-sg` |
+| Lambda | `process-support` | Node.js 22, `LabRole`, VPC privada, `cta-lambda-sg`, timeout 15 s, trigger S3 `supports/` |
+| Lambda | `report-hours-by-client` | Node.js 22, `LabRole`, VPC privada, `cta-lambda-sg`, timeout 15 s |
 | API Gateway | `cta-api-gw` | HTTP API, rotas §4, CORS §4.4 |
 
 ## 6. Security Groups
@@ -271,7 +270,11 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 | EC2 + container `cta-api` | ✅ | `docker ps`, `curl localhost:3000/api` |
 | API Gateway `ANY /api/{proxy+}` → EC2 | ✅ | Swagger em `<invoke-url>/api/docs` |
 | Angular local consumindo o API Gateway | ✅ | login e CRUD de clientes/postos |
-| Lambdas, bucket de suportes, Angular no S3 | ⬜ | Aula 4 |
+| Bucket privado `cta-supports-*` + CORS | ⬜ Aula 4 | console S3 |
+| `POST /api/novelties/:id/upload-url` e `GET /api/novelties/:id/documents` | ✅ código · ⬜ deploy | Swagger |
+| Lambda `process-support` + trigger S3 (`supports/`) | ✅ código (testado com PostgreSQL 16) · ⬜ deploy | log no CloudWatch |
+| Lambda `report-hours-by-client` + rota no API Gateway | ✅ código (testado) · ⬜ deploy | aba "Horas por cliente" |
+| Angular no S3 static website | ✅ build de produção · ⬜ publicação | URL do site |
 
 ## 8. ADRs
 
@@ -296,7 +299,7 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 
 ### ADR-05 — RF-03 = registrar o suporte da novidade
 - **Alternativas:** miniatura de imagem (exige `sharp`, binário nativo na Lambda); importar CSV da planilha (validação complexa).
-- **Decisão:** a Lambda grava os metadados em `support_documents` e marca `support_submitted = true`.
+- **Decisão:** a Lambda grava os metadados em `support_documents` e marca `support_submitted = true`. Os metadados vêm do evento do S3 (chave e tamanho; tipo pela extensão), então a Lambda só acessa o RDS. A operação é idempotente (`s3_key` único + `ON CONFLICT DO NOTHING`).
 - **Por quê:** o campo `support_submitted` e o filtro `support_pending` **já existem**; a Lambda só automatiza o que hoje é manual.
 
 ### ADR-06 — URL da API no build de produção
@@ -327,5 +330,5 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 - **Por quê:** RNF-02. **Bônus opcional:** mover os segredos para o Parameter Store (SecureString).
 
 ### ADR-09 — Autenticação no relatório em Lambda
-- **Decisão:** a Lambda `report-hours-by-client` valida o mesmo JWT do NestJS (biblioteca `jsonwebtoken` + `JWT_SECRET` em variável de ambiente) e aceita os papéis `admin` e `coordinator`.
+- **Decisão:** a Lambda `report-hours-by-client` valida o mesmo JWT do NestJS (biblioteca `jsonwebtoken`) e aceita os papéis `admin` e `coordinator`. A validação é ativada pela variável `JWT_SECRET`; sem ela, a rota fica aberta (útil só para testes).
 - **Por quê:** o relatório expõe dados de faturamento; reutilizar o token evita um segundo login.

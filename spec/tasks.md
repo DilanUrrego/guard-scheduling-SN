@@ -1,6 +1,7 @@
 # Tarefas — Clave Seguridad CTA
 
-> **Versão 0.4** (Aula 3 · 23/10) — infraestrutura da Aula 3 rodando (conta AWS com créditos; migração para o Learner Lab na Aula 4).
+> **Versão 0.5** (Aula 4) — código da Aula 4 escrito e testado; falta o deploy.
+> **Versão anterior 0.4** (Aula 3 · 23/10) — infraestrutura da Aula 3 rodando (conta AWS com créditos; migração para o Learner Lab na Aula 4).
 > Cada tarefa é pequena e está ligada a um requisito ou história. **Projeto individual:** todas as tarefas são do autor.
 > **Status:** ⬜ a fazer · 🔄 em andamento · ✅ feito
 > **Regra:** ao implementar com o Claude, dar como contexto `spec/spec.md` + `spec/design.md` + o ID da tarefa, e registrar o prompt em `docs/ia-log.md`.
@@ -66,20 +67,20 @@ O que já funciona localmente e será reaproveitado:
 | ID | Tarefa | Req./HU | Resp. | Status |
 |---|---|---|---|---|
 | T-21a | Recriar VPC, SGs, RDS, EC2 e API Gateway no **Learner Lab** seguindo o README | RNF-03 · ADR-12 | Autor | ⬜ |
-| T-21b | Associar `LabInstanceProfile` à EC2 | RF-02 | Autor | ⬜ |
+| T-21b | Criar/associar `LabInstanceProfile` (EC2) e `LabRole` (Lambdas) — na conta própria, com os mesmos nomes | RF-02 · RF-03 | Autor | ⬜ |
 | T-21c | Restringir a saída do `cta-lambda-sg` (5432 → `cta-rds-sg`, 443 → S3) | RNF-01 | Autor | ⬜ |
 | T-21d | Acrescentar a URL do S3 website no CORS do API Gateway | HU-10 | Autor | ⬜ |
 | T-21e | Excluir os recursos da conta com créditos (RDS, EC2, API Gateway, VPC) | ADR-12 | Autor | ⬜ |
 | T-21 | Bucket `cta-supports-*` privado com CORS | RF-02 | Autor | ⬜ |
-| T-22 | Modelo `SupportDocument` + nova migration | RF-03 | Autor | ⬜ |
-| T-23 | `POST /api/novelties/:id/upload-url` (`@aws-sdk/s3-request-presigner`, tipo/tamanho, 5 min) | HU-07 | Autor | ⬜ |
-| T-24 | `GET /api/novelties/:id/documents` com URL pré-assinada de download | HU-07 | Autor | ⬜ |
-| T-25 | Botão "Anexar suporte" na tela de novidades (PUT direto no S3) | HU-07 | Autor | ⬜ |
-| T-26 | VPC Gateway Endpoint S3 na route table privada | RF-03 | Autor | ⬜ |
-| T-27 | Lambda `process-support` (`pg` + HeadObject, idempotente) + evento do S3 | HU-08 | Autor | ⬜ |
-| T-28 | Lambda `report-hours-by-client` (JOIN/GROUP BY + JWT) + rota no API Gateway | HU-09 · ADR-09 | Autor | ⬜ |
-| T-29 | Tela do relatório de horas no Angular | HU-09 | Autor | ⬜ |
-| T-30 | Adicionar `fileReplacements` no `angular.json` (hoje o `environment.prod.ts` não é usado), URL do API Gateway, `ng build` e publicar no `cta-front-*` | HU-10 · ADR-06 | Autor | ⬜ |
+| T-22 | Modelo `SupportDocument` + nova migration | RF-03 | Autor | 🔄 |
+| T-23 | `POST /api/novelties/:id/upload-url` (`@aws-sdk/s3-request-presigner`, tipo/tamanho, 5 min) | HU-07 | Autor | 🔄 |
+| T-24 | `GET /api/novelties/:id/documents` com URL pré-assinada de download | HU-07 | Autor | 🔄 |
+| T-25 | Botão "Anexar suporte" na tela de novidades (PUT direto no S3) | HU-07 | Autor | 🔄 |
+| T-26 | VPC Gateway Endpoint S3 na route table privada (criado na Aula 3; não é usado pela Lambda atual) | RF-03 | Autor | ✅ |
+| T-27 | Lambda `process-support` (`pg`, metadados do próprio evento, idempotente) + evento do S3 | HU-08 | Autor | 🔄 |
+| T-28 | Lambda `report-hours-by-client` (JOIN/GROUP BY + JWT opcional) + rota no API Gateway | HU-09 · ADR-09 | Autor | 🔄 |
+| T-29 | Tela do relatório de horas no Angular | HU-09 | Autor | 🔄 |
+| T-30 | `fileReplacements` + URL do API Gateway no `environment.prod.ts` (✅) · `ng build` e publicar no `cta-front-*` (⬜) | HU-10 · ADR-06 | Autor | 🔄 |
 | T-31 | Conferir que o `design.md` bate com o que está rodando | — | Autor | ⬜ |
 
 ## Final — 06/11

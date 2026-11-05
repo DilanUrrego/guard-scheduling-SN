@@ -7,6 +7,8 @@ import { NoveltiesService } from './novelties.service';
 import { CreateNoveltyDto } from './dto/create-novelty.dto';
 import { UpdateNoveltyDto } from './dto/update-novelty.dto';
 import { FilterNoveltyDto } from './dto/filter-novely.dto';
+import { UploadUrlDto } from './dto/upload-url.dto';
+import { SupportsService } from './supports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,7 +19,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('novelties')
 export class NoveltiesController {
-  constructor(private noveltiesService: NoveltiesService) {}
+  constructor(
+    private noveltiesService: NoveltiesService,
+    private supportsService: SupportsService,
+  ) {}
 
   @Get('types')
   @Roles('admin', 'coordinator')
@@ -51,6 +56,21 @@ export class NoveltiesController {
   @ApiOperation({ summary: 'Actualizar novedad (ej: marcar soporte como presentado)' })
   update(@Param('id') id: string, @Body() dto: UpdateNoveltyDto) {
     return this.noveltiesService.update(id, dto);
+  }
+
+  // ── RF-02: soportes en S3 ─────────────────────────────────────
+  @Post(':id/upload-url')
+  @Roles('admin', 'coordinator')
+  @ApiOperation({ summary: 'URL pre-firmada (5 min) para subir el soporte directo a S3' })
+  createUploadUrl(@Param('id') id: string, @Body() dto: UploadUrlDto) {
+    return this.supportsService.createUploadUrl(id, dto);
+  }
+
+  @Get(':id/documents')
+  @Roles('admin', 'coordinator')
+  @ApiOperation({ summary: 'Documentos de soporte de la novedad (con URL de descarga)' })
+  listDocuments(@Param('id') id: string) {
+    return this.supportsService.listDocuments(id);
   }
 
   @Delete(':id')
