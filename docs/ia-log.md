@@ -217,3 +217,41 @@ Dá-me o passo a passo do que se deve fazer para a Aula 4.
 
 - ✏️ Corrigido por mim: o bucket do front se chama `cs-front-<id-da-conta>`, não `cta-front-*` como estava na documentação; atualizei README e design.
 - **Aprendizado:** cada "porta" tem a sua lista de CORS: o login passa pelo API Gateway, e o upload vai direto ao bucket. Uma origem nova (o site no S3) precisa ser autorizada nas duas.
+
+---
+
+## Reflexão final
+
+### Como usei a IA em cada etapa
+O Claude (no lugar do GitHub Copilot, em projeto individual) participou de todas as etapas: gerou o `spec.md`, propôs a arquitetura e os ADRs do `design.md`, quebrou o trabalho em tarefas no `tasks.md`, escreveu o código novo (Dockerfile, upload com URL pré-assinada, as duas Lambdas, as telas de suporte e de relatório) e me guiou passo a passo no console da AWS. Eu dei o contexto (enunciado, descrição do sistema e o repositório), decidi o que aceitar e fiz o deploy.
+
+### O que funcionou bem
+- **Especificar antes de codificar.** Comparar os requisitos mínimos com o sistema original mostrou que eu não precisava implementar tudo: cada RF do domínio passou a corresponder a um requisito do enunciado (por exemplo, dos 5 relatórios em Excel, só um novo em Lambda). Isso evitou trabalho em dobro.
+- **Dar o código real como contexto.** Na Aula 2 a primeira versão do design não batia com o meu código (nomes em espanhol, tabelas que não existiam). Quando a IA leu o repositório, a documentação passou a descrever o sistema que de fato existe.
+- **Encontrar erros antes do deploy.** Ao compilar o projeto, a IA achou problemas que teriam derrubado a demo: a API não iniciava no container (`dist/src/main.js`), faltava o `tsx` para o seed, havia senhas no `seed.ts` e no `docker-compose.yml`, o RDS exigia SSL e o `environment.prod.ts` nunca era usado. Na Aula 4, as Lambdas foram testadas contra um PostgreSQL real antes de subir para a AWS.
+
+### Onde a IA errou e eu precisei corrigir
+- Propôs nomes de Security Group começando com `sg-`, que a AWS não aceita.
+- O *user data* sugerido era frágil: colado com espaços antes de `#!/bin/bash`, não executou.
+- Assumiu que eu estava no Learner Lab (`vockey`, `LabInstanceProfile`); eu estava numa conta com créditos.
+- Sugeriu unificar descansos e novidades, o que depois foi revertido porque o código já tratava os dois separados.
+- Os erros mais demorados (regra do `cta-rds-sg`, URL da integração do API Gateway e CORS) eu mesmo encontrei seguindo os checklists; dois deles eram erros de digitação em URLs.
+
+### O que eu decidi
+Usar cargos em vez de nomes próprios nas personas; manter o CRUD em container (ADR-01); demonstrar a Aula 3 com o Angular local e o Swagger como plano B; continuar na conta com créditos respeitando as restrições do Learner Lab, criando roles com os mesmos nomes (ADR-12).
+
+### Aprendizados técnicos
+- A mensagem de erro aponta a camada: **P1001** é rede, **P1000** é credencial, **503** é a integração do API Gateway, e um "credenciais inválidas" no front pode ser **CORS**.
+- Testar por camadas (EC2 direto na porta 3000 → API Gateway → navegador) mostra onde está o problema.
+- Cada "porta" tem o seu CORS: o login passa pelo API Gateway e o upload vai direto ao bucket.
+- Sem IaC, o README *é* a infraestrutura: cada erro corrigido virou uma linha da tabela de problemas comuns.
+- Custo: sem NAT Gateway e com instâncias pequenas, o sistema inteiro custa cerca de US$ 1 por dia.
+
+### O que eu faria diferente
+- Começar direto no Learner Lab e testar o README do zero numa sessão nova (o teste do RNF-03 no lab, tarefa T-32, não foi feito).
+- Criar um alerta de orçamento no primeiro dia.
+- Copiar e colar valores do console (URLs, endpoints, nomes) em vez de digitá-los.
+- Pedir à IA testes automatizados desde o início, como foi feito com as Lambdas na Aula 4.
+
+### Conclusão
+A IA acelerou muito a especificação, o código e o diagnóstico de erros, mas não substitui a verificação: várias propostas pareciam corretas e falharam no console da AWS. O resultado final depende de entender cada parte; por isso registrei aqui o que aceitei, o que corrigi e por quê.

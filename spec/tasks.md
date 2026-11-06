@@ -1,6 +1,6 @@
 # Tarefas — Clave Seguridad CTA
 
-> **Versão 0.6** (Aula 4) — Aula 4 implantada e funcionando na AWS.
+> **Versão 0.7** (Final · 06/11) — entrega final: evidências, reflexão e ZIP.
 > **Versão anterior 0.4** (Aula 3 · 23/10) — infraestrutura da Aula 3 rodando (conta AWS com créditos; migração para o Learner Lab na Aula 4).
 > Cada tarefa é pequena e está ligada a um requisito ou história. **Projeto individual:** todas as tarefas são do autor.
 > **Status:** ⬜ a fazer · 🔄 em andamento · ✅ feito
@@ -87,9 +87,12 @@ O que já funciona localmente e será reaproveitado:
 
 | ID | Tarefa | Req./HU | Resp. | Status |
 |---|---|---|---|---|
-| T-32 | Testar o README do zero numa sessão nova do Learner Lab | RNF-03 | Autor | ⬜ |
-| T-33 | Prints em `docs/evidencias/` (app e recursos AWS) | — | Autor | ⬜ |
-| T-34 | Reflexão final no `ia-log.md` | — | Autor | ⬜ |
-| T-35 | Montar o ZIP e enviar no Moodle | — | Autor | ⬜ |
+| T-32 | Testar o README do zero numa sessão nova do Learner Lab: não realizado (ambiente na conta com créditos; ver ADR-12 e a reflexão final) | RNF-03 | Autor | — |
+| T-33 | Prints em `docs/evidencias/` (14 capturas: app e recursos AWS) | — | Autor | ✅ |
+| T-34 | Reflexão final no `ia-log.md` | — | Autor | ✅ |
+| T-35 | Gerar o ZIP com `git archive` (só arquivos versionados) e enviar no Moodle com o link do repositório | — | Autor | 🔄 |
 | T-36 | (Bônus) Alarme no CloudWatch para erros da Lambda `process-support` | Bônus | Autor | ⬜ |
 | T-37 | (Bônus) Segredos no Parameter Store | Bônus | Autor | ⬜ |
+| T-38 | Remover arquivos soltos do repositório (`aula3-archivos.zip`, `index.html` da raiz) | — | Autor | ✅ |
+
+> **Depois da nota:** executar a T-21e (excluir RDS, EC2, API Gateway, Lambdas, buckets e VPC) para não gerar custo.
