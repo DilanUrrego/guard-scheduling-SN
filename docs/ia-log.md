@@ -31,7 +31,7 @@ pelo menos 5 histórias, como cada RF se aplica); primeira entrada no ia-log.md.
 **Minhas decisões:**
 - ✅ Aceito: domínio, problema e as 4 personas (refletem o processo real da planilha).
 - ✏️ A revisar na Entrada 02: a v0.1 mantinha quase todos os módulos do sistema original (descansos separados, 5 relatórios, login com papéis), o que daria trabalho em dobro.
-- *[preencher: algo que eu mudei ou rejeitei ao ler a v0.1]*
+- ✏️ Corrigido por mim: pedi para trocar os nomes próprios das personas (ex.: "Jorge", "Lúcia") pelo **cargo** (Administrador, Coordenador, Vigilante, Recursos Humanos), que é como a empresa fala dos papéis.
 
 ---
 
@@ -60,7 +60,7 @@ e gera primeiro esses arquivos.
 - ✏️ Corrigido: o descanso, que na v0.1 era entidade própria, virou um tipo de novidade (ADR-04): uma tabela e uma validação a menos.
 - ✏️ Corrigido: os nomes dos estados misturavam português e espanhol; padronizados com o código (`PENDIENTE`, `ENTREGADO`, `NO_REQUIERE`).
 - ❌ Fora do escopo: login JWT com papéis, os outros 4 relatórios e o calendário arrastar-e-soltar.
-- *[preencher: algo que eu questionei ou mudei no design]*
+- ❓ Questionei quando publicar o Angular: ficou para a Aula 4, porque o build de produção precisa da URL do API Gateway (criado na Aula 3) e das telas novas de upload e relatório.
 
 **Aprendizado:** pedir à IA que relacione cada funcionalidade a um requisito do enunciado deixou claro o que cortar.
 
@@ -94,7 +94,7 @@ Já adicionei o GitHub. Ajusta o design.md e o tasks.md ao código que já tenho
 - ✅ Aceito: a rota da Lambda fica em `/api/reports/hours-by-client`, para o front usar uma só URL base.
 - ✏️ Corrigido: ADR-06 — em vez de `config.json` em runtime, usar a URL do API Gateway no `environment.prod.ts`, porque ela não muda entre sessões (menos código).
 - 🆕 Tarefa criada: T-17 para corrigir a validação do turno que cruza a meia-noite.
-- *[preencher: algo que eu questionei ou mudei]*
+- ❓ Questionei o papel das Lambdas no sistema: confirmei que elas ficam só onde o enunciado exige (RF-03 e RF-04), e o CRUD segue no container (ADR-01).
 
 **Aprendizado:** dar o código real como contexto evitou documentar um sistema diferente do que existe.
 
@@ -206,4 +206,14 @@ Dá-me o passo a passo do que se deve fazer para a Aula 4.
 - ✅ JWT no relatório **opcional** via `JWT_SECRET` (ADR-09).
 - ✅ Container com `--network host` para ler as credenciais da role da EC2.
 - ✅ Na conta própria, roles criadas com os mesmos nomes do Learner Lab (`LabInstanceProfile`, `LabRole`).
-- *[preencher: o que eu mudei ou corrigi durante o deploy]*
+
+**Deploy da Aula 4 — problemas e correções:**
+
+| # | Sintoma | Causa | Solução |
+|---|---|---|---|
+| 1 | `curl localhost:3000/api` falhou logo após o `docker run` | A API ainda estava iniciando | Esperar alguns segundos e conferir com `docker logs` (não era erro) |
+| 2 | Dúvida se a Lambda do relatório precisava de VPC | Ela também consulta o RDS, que só aceita conexões de dentro da VPC | Criada igual à `process-support`: `LabRole`, `cta-vpc`, subnets privadas, `cta-lambda-sg` |
+| 3 | Site no S3 abria, mas o login dizia "credenciais inválidas" | **CORS**: a origem do site (`http://cs-front-<id-da-conta>.s3-website-us-east-1.amazonaws.com`) não estava autorizada no API Gateway | Encontrei o erro no console do navegador (no Opera: Ctrl+Shift+I) e acrescentei a origem no CORS do API Gateway **e** no do bucket de suportes |
+
+- ✏️ Corrigido por mim: o bucket do front se chama `cs-front-<id-da-conta>`, não `cta-front-*` como estava na documentação; atualizei README e design.
+- **Aprendizado:** cada "porta" tem a sua lista de CORS: o login passa pelo API Gateway, e o upload vai direto ao bucket. Uma origem nova (o site no S3) precisa ser autorizada nas duas.

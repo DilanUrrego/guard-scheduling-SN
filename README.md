@@ -179,7 +179,7 @@ Pré-requisito: a infraestrutura da Aula 3 rodando.
      {
        "AllowedHeaders": ["*"],
        "AllowedMethods": ["PUT", "GET"],
-       "AllowedOrigins": ["http://localhost:4200", "http://cta-front-<sufixo>.s3-website-us-east-1.amazonaws.com"],
+       "AllowedOrigins": ["http://localhost:4200", "http://cs-front-<id-da-conta>.s3-website-us-east-1.amazonaws.com"],
        "ExposeHeaders": ["ETag"],
        "MaxAgeSeconds": 3000
      }
@@ -241,9 +241,9 @@ A rota exata tem prioridade sobre `ANY /api/{proxy+}`: só ela vai para a Lambda
    ```bash
    cd frontend && npm ci && npx ng build
    ```
-3. **S3 → `cta-front-<sufixo>` → Objects**: apague o conteúdo antigo e envie **o conteúdo** de `frontend/dist/frontend/browser/` (arquivos e pastas, não a pasta `browser`).
+3. **S3 → `cs-front-<id-da-conta>` → Objects**: apague o conteúdo antigo e envie **o conteúdo** de `frontend/dist/frontend/browser/` (arquivos e pastas, não a pasta `browser`).
 4. **Properties → Static website hosting → Edit**: Index document `index.html` e **Error document `index.html`** (para as rotas do Angular).
-5. **API Gateway → CORS**: acrescente a origem `http://cta-front-<sufixo>.s3-website-us-east-1.amazonaws.com` (sem `/` no final).
+5. **API Gateway → CORS**: acrescente a origem `http://cs-front-<id-da-conta>.s3-website-us-east-1.amazonaws.com` (sem `/` no final). Copie-a da barra do navegador; ela também precisa estar no CORS do bucket de suportes (passo 8).
 6. Abra o *Bucket website endpoint*, faça login e teste: anexar suporte, ver suporte e o informe "Horas por cliente".
 
 ### Problemas comuns da Aula 4
@@ -253,7 +253,9 @@ A rota exata tem prioridade sobre `ANY /api/{proxy+}`: só ela vai para a Lambda
 | `upload-url` responde 500 *Could not load credentials* | EC2 sem `LabInstanceProfile`, ou container rodando sem `--network host` |
 | Upload falha com erro de CORS no PUT | CORS do bucket de suportes sem a origem do front |
 | Upload ok, mas a novidade não muda | Trigger sem o prefixo `supports/`, ou a Lambda não alcança o RDS (veja o log no CloudWatch; confira `cta-rds-sg` ← `cta-lambda-sg`) |
-| Lambda termina por *timeout* | Timeout padrão de 3 s; use 15 s |
+| Lambda termina por *timeout* | Timeout padrão de 3 s (use 15 s), ou a Lambda foi criada sem VPC/subnets privadas/`cta-lambda-sg` |
+| Site no S3 abre, mas o login diz "credenciais inválidas" | Origem do site faltando no CORS do API Gateway (confira no console do navegador: Ctrl+Shift+I → Console) |
+| `curl localhost:3000/api` falha logo após o `docker run` | A API ainda está iniciando: espere ~10 s e confira `docker logs cta-api` |
 | Informe responde 401 | `JWT_SECRET` da Lambda diferente do da EC2 |
 
 ---

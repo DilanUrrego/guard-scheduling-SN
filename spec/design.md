@@ -1,6 +1,6 @@
 # Design — Clave Seguridad CTA · Programação de Turnos
 
-> **Versão 0.5** (Aula 4) — inclui upload, Lambdas e front publicado — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
+> **Versão 0.6** (Aula 4) — coerente com o que está rodando na AWS — alinhada ao código existente no repositório (`backend/` NestJS + Prisma, `frontend/` Angular). Baseado em `spec/spec.md` v0.3. Região: `us-east-1` (Learner Lab).
 > Legenda: ✅ já existe no código · 🆕 a implementar no Projeto 2.
 
 ## 1. Visão geral
@@ -238,7 +238,7 @@ ORDER BY c.name, p.name;
 | VPC Endpoint | `cta-s3-endpoint` | Gateway, S3, associado às route tables privadas (reservado; as Lambdas atuais não chamam o S3) |
 | RDS | `cta-db` | PostgreSQL 16, db.t3.micro, 20 GB gp3, sem acesso público |
 | EC2 | `cta-api` | t3.micro, Amazon Linux 2023, 16 GiB, Docker + 1 GB de swap, `LabInstanceProfile` (necessário a partir da Aula 4 para gerar URLs pré-assinadas) |
-| S3 website | `cta-front-*` | Static website hosting, leitura pública (landing na Aula 2, Angular na Aula 4) |
+| S3 website | `cs-front-<id-da-conta>` | Static website hosting, leitura pública, *error document* `index.html` (landing na Aula 2, Angular na Aula 4) |
 | S3 suportes | `cta-supports-*` | Privado, CORS, evento `s3:ObjectCreated:*` prefixo `supports/` → `process-support` |
 | Lambda | `process-support` | Node.js 22, `LabRole`, VPC privada, `cta-lambda-sg`, timeout 15 s, trigger S3 `supports/` |
 | Lambda | `report-hours-by-client` | Node.js 22, `LabRole`, VPC privada, `cta-lambda-sg`, timeout 15 s |
@@ -259,7 +259,7 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 - Os Security Groups são *stateful*: a resposta de uma conexão aceita na entrada sai sem precisar de regra de saída.
 - Regras só **permitem**; uma regra a mais (ex.: SSH) nunca bloqueia outra.
 
-## 7. Estado do deploy (Aula 3 · 23/10)
+## 7. Estado do deploy (Aulas 3 e 4)
 
 | Componente | Estado | Evidência |
 |---|---|---|
@@ -269,12 +269,12 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 | Migration + seed aplicados no RDS | ✅ | `prisma migrate deploy` / `db seed` a partir da EC2 |
 | EC2 + container `cta-api` | ✅ | `docker ps`, `curl localhost:3000/api` |
 | API Gateway `ANY /api/{proxy+}` → EC2 | ✅ | Swagger em `<invoke-url>/api/docs` |
-| Angular local consumindo o API Gateway | ✅ | login e CRUD de clientes/postos |
-| Bucket privado `cta-supports-*` + CORS | ⬜ Aula 4 | console S3 |
-| `POST /api/novelties/:id/upload-url` e `GET /api/novelties/:id/documents` | ✅ código · ⬜ deploy | Swagger |
-| Lambda `process-support` + trigger S3 (`supports/`) | ✅ código (testado com PostgreSQL 16) · ⬜ deploy | log no CloudWatch |
-| Lambda `report-hours-by-client` + rota no API Gateway | ✅ código (testado) · ⬜ deploy | aba "Horas por cliente" |
-| Angular no S3 static website | ✅ build de produção · ⬜ publicação | URL do site |
+| Angular local consumindo o API Gateway (Aula 3) | ✅ | login e CRUD de clientes/postos |
+| Bucket privado `cta-supports-*` + CORS | ✅ | arquivos em `supports/novelty-<id>/` |
+| `POST /api/novelties/:id/upload-url` e `GET /api/novelties/:id/documents` | ✅ | Swagger e botões 📎 / 👁 no front |
+| Lambda `process-support` + trigger S3 (`supports/`) | ✅ | log `Soporte registrado` no CloudWatch; novidade passa a "Presentado" |
+| Lambda `report-hours-by-client` + rota `GET /api/reports/hours-by-client` | ✅ | aba "Horas por cliente" |
+| Angular no S3 static website (`cs-front-<id-da-conta>`) | ✅ | login e CRUD pela URL pública do bucket |
 
 ## 8. ADRs
 
@@ -320,10 +320,10 @@ Para rodar migrations e o seed, conecto **a partir da EC2** (o RDS não tem IP p
 - **Decisão:** cada componente tem o seu `.scss` (`styleUrls`), e o `angular.json` define `stylePreprocessorOptions.includePaths: ["src/styles"]`, de modo que todos importam com `@use 'variables' as *;`.
 - **Por quê:** separa estilo de lógica e elimina a dependência da profundidade da pasta: mover um componente não quebra mais o import.
 
-### ADR-12 — Aula 3 implantada numa conta AWS com créditos
+### ADR-12 — Aulas 3 e 4 implantadas numa conta AWS com créditos
 - **Contexto:** a infraestrutura da Aula 3 foi criada numa conta AWS com créditos (não no Learner Lab), onde não existem `vockey` nem `LabInstanceProfile`.
-- **Decisão:** respeitar as restrições do Learner Lab mesmo assim (sem roles IAM próprios, sem NAT, instâncias pequenas, sem IaC) e recriar tudo no Learner Lab na Aula 4 seguindo o README.
-- **Consequências:** a EC2 roda sem instance profile (não é necessário enquanto a API não acessa o S3). Ao terminar a apresentação, os recursos da conta com créditos são excluídos para não gerar custo. A recriação no Learner Lab serve também como teste do RNF-03.
+- **Decisão:** respeitar as restrições do Learner Lab mesmo assim (sem NAT, instâncias pequenas, sem IaC). Como a conta não tem as roles do lab, foram criadas duas roles **com os mesmos nomes** (`LabInstanceProfile` para a EC2, só `s3:PutObject`/`s3:GetObject` no bucket de suportes; `LabRole` para as Lambdas, com `AWSLambdaVPCAccessExecutionRole`), para que o README funcione igual no Learner Lab.
+- **Consequências:** a migração para o Learner Lab planejada para a Aula 4 não foi feita; tudo continuou na mesma conta (custo aproximado de US$ 1/dia). Depois da entrega final, os recursos são excluídos para não gerar custo.
 
 ### ADR-08 — Segredos fora do repositório
 - **Decisão:** `DATABASE_URL`, `DATABASE_SSL`, `JWT_SECRET`, `FRONTEND_URL` e `SEED_PASSWORD` em `.env` na EC2 (ignorado pelo Git e pelo Docker) e em variáveis de ambiente das Lambdas. O `docker-compose.yml` e o `seed.ts` deixaram de ter senhas escritas; `backend/.env.example` documenta as variáveis sem valores.
